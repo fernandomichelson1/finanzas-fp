@@ -57,6 +57,7 @@ interface Actions {
   }) => Categoria;
   setCategoryUso: (id: string, uso: CategoriaUso) => void;
   createUser: (input: { nombre: string; iniciales: string; color: string; rol: Rol }) => Usuario;
+  updateUser: (id: UserId, payload: Partial<Usuario>) => void;
 
   // ahorros
   logAporte: (objetivoId: string, monto: number) => void;
@@ -160,6 +161,8 @@ export const useFinanzasStore = create<FinanzasStore>()(
         set((s) => ({ users: { ...s.users, [id]: nuevo } }));
         return nuevo;
       },
+      updateUser: (id, payload) =>
+        set((s) => (s.users[id] ? { users: { ...s.users, [id]: { ...s.users[id], ...payload } } } : s)),
 
       // ── ahorros ──
       logAporte: (objetivoId, monto) => {
@@ -285,6 +288,7 @@ export const useFinanzasStore = create<FinanzasStore>()(
             pagado: true,
             pagadoFecha: TODAY,
             pagadoMovId: movId,
+            usdRate: get().usdRate,
           };
           const instancias =
             i === -1

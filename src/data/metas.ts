@@ -1,9 +1,4 @@
 import type { Metas } from '@/types/domain';
 
-// Metas mensuales por categoría (catId → monto ARS).
-export const METAS_SEED: Metas = {
-  ali: 220000,
-  ent: 80000,
-  tra: 75000,
-  edu: 260000,
-};
+// Sin metas precargadas: cada uno define las suyas desde "Alertas y metas".
+export const METAS_SEED: Metas = {};

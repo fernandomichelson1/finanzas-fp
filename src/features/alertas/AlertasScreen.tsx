@@ -24,6 +24,7 @@ export function AlertasScreen() {
   const metas = useFinanzasStore((s) => s.metas);
   const currentUser = useFinanzasStore((s) => s.currentUser);
   const setMeta = useFinanzasStore((s) => s.setMeta);
+  const deleteMeta = useFinanzasStore((s) => s.deleteMeta);
   const isAdmin = useFinanzasStore((s) => s.users[currentUser]?.rol === 'admin');
 
   const [editing, setEditing] = useState<string | null>(null);
@@ -113,9 +114,16 @@ export function AlertasScreen() {
                         <button onClick={() => { setEditing(null); setInput(''); }} className="rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-[11px] text-muted">×</button>
                       </div>
                     ) : isAdmin ? (
-                      <button onClick={() => { setEditing(c.id); setInput(lim?.toString() ?? ''); }} className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold tabular-nums" style={{ background: lim ? alpha(barColor, 0.13) : 'var(--surface-2)', color: lim ? barColor : 'var(--text-muted)', border: lim ? `1px solid ${alpha(barColor, 0.33)}` : '1px solid var(--border)' }}>
-                        {lim ? `$${fmtMonto(lim)}` : '+ Meta'}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => { setEditing(c.id); setInput(lim?.toString() ?? ''); }} className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold tabular-nums" style={{ background: lim ? alpha(barColor, 0.13) : 'var(--surface-2)', color: lim ? barColor : 'var(--text-muted)', border: lim ? `1px solid ${alpha(barColor, 0.33)}` : '1px solid var(--border)' }}>
+                          {lim ? `$${fmtMonto(lim)}` : '+ Meta'}
+                        </button>
+                        {lim != null && (
+                          <button onClick={() => deleteMeta(c.id)} aria-label={`Borrar meta de ${c.nombre}`} title="Borrar meta" className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-[#F87171]">
+                            <Icon.trash size={15} />
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-[11.5px] tabular-nums text-muted">{lim ? `$${fmtMonto(lim)}` : 'Sin meta'}</span>
                     )}

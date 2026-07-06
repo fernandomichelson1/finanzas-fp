@@ -23,6 +23,7 @@ export interface Usuario {
   iniciales: string;
   color: string; // hex; avatar con gradiente 135°
   rol: Rol;
+  foto?: string; // data URI de la foto de perfil (prevalece sobre iniciales)
   custom?: boolean;
 }
 
@@ -114,6 +115,8 @@ export interface VencimientoInstancia {
   pagado?: boolean;
   pagadoFecha?: ISODate;
   pagadoMovId?: string;
+  /** Dólar blue (ARS/USD) del día del pago, para acumular el mes en USD. */
+  usdRate?: number;
 }
 
 /** Fila derivada por `computeVencimientos`: template + instancia del mes. */

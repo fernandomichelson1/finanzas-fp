@@ -20,7 +20,7 @@ export function Avatar({
         width: size,
         height: size,
         borderRadius: '50%',
-        background: gradient(u.color, -0.15),
+        background: u.foto ? `center/cover no-repeat url(${u.foto})` : gradient(u.color, -0.15),
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -34,7 +34,7 @@ export function Avatar({
           : '0 1px 2px rgba(0,0,0,0.18)',
       }}
     >
-      {u.iniciales}
+      {!u.foto && u.iniciales}
     </div>
   );
 }

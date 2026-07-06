@@ -110,6 +110,29 @@ export function gastosDelMes(
   return { total: fijos + eventuales, fijos, eventuales, countFijos, porCategoria, porOwner };
 }
 
+/**
+ * Total PAGADO del mes en USD: cada instancia pagada al dólar blue de SU día
+ * (`usdRate` guardado); si no lo tiene (pago viejo), usa `currentRate` como aprox.
+ */
+export function usdPagadoDelMes(
+  instancias: VencimientoInstancia[],
+  gastosFijos: GastoFijo[],
+  mes: Mes,
+  currentRate: number,
+): number {
+  const gfById = new Map(gastosFijos.map((g) => [g.id, g]));
+  let usd = 0;
+  for (const inst of instancias) {
+    if (!inst.pagado || inst.mes !== mes) continue;
+    const gf = gfById.get(inst.gfId);
+    if (!gf) continue;
+    const monto = inst.monto ?? gf.montoSugerido ?? 0;
+    const rate = inst.usdRate && inst.usdRate > 0 ? inst.usdRate : currentRate;
+    if (rate > 0) usd += monto / rate;
+  }
+  return usd;
+}
+
 /** Serie de los últimos `n` meses (incluye `hasta`) con el gasto total real de cada uno. */
 export function serieGastosMeses(
   instancias: VencimientoInstancia[],

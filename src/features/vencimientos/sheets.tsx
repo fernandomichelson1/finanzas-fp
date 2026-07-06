@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { Owner, VencimientoRow } from '@/types/domain';
-import { fmtMonto } from '@/lib/format';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
 import { Icon } from '@/components/ui/icons';
@@ -39,25 +38,70 @@ function OwnerPicker({ value, onChange }: { value: Owner; onChange: (o: Owner) =
   );
 }
 
-/** Elegir caja desde la que se paga el vencimiento. */
-export function PagarSheet({ venc, onClose, onConfirm }: { venc: VencimientoRow; onClose: () => void; onConfirm: (cajaId: string) => void }) {
+/** Pagar un vencimiento: editar monto/fecha/responsable + elegir caja y pagar. */
+export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: () => void }) {
   const currentUser = useFinanzasStore((s) => s.currentUser);
   const cajas = useFinanzasStore((s) => s.cajas).filter((c) => c.owner === currentUser);
+  const pagarVencimiento = useFinanzasStore((s) => s.pagarVencimiento);
+  const updateInstancia = useFinanzasStore((s) => s.updateInstancia);
+  const setGastoFijoOwnerFrom = useFinanzasStore((s) => s.setGastoFijoOwnerFrom);
   const [sel, setSel] = useState<string | null>(cajas[0]?.id ?? null);
+  const [monto, setMonto] = useState(String(venc.monto));
+  const [dia, setDia] = useState(String(Number(venc.vence.split('-')[2])));
+  const [owner, setOwner] = useState<Owner>(venc.owner);
   const c = useCatById(venc.cat) ?? FALLBACK;
+
+  const parseMonto = () => {
+    const n = Number(String(monto).replace(/[^\d.]/g, ''));
+    return isNaN(n) ? 0 : n;
+  };
+  const fechaISO = () => `${venc.mes}-${String(Math.max(1, Math.min(31, Number(dia) || 1))).padStart(2, '0')}`;
+  const applyOwner = (o: Owner) => {
+    setOwner(o);
+    if (o !== venc.owner) setGastoFijoOwnerFrom(venc.gfId, venc.mes, o);
+  };
+  const guardar = () => {
+    updateInstancia(venc.gfId, venc.mes, { monto: parseMonto(), fecha: fechaISO() });
+    onClose();
+  };
+  const pagar = () => {
+    if (!sel) return;
+    pagarVencimiento({ ...venc, monto: parseMonto(), vence: fechaISO() }, sel);
+    onClose();
+  };
 
   return (
     <AdaptiveDialog open onClose={onClose}>
-      <div className="p-[18px]">
+      <div className="overflow-y-auto p-[18px]">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-[42px] w-[42px] items-center justify-center overflow-hidden rounded-xl" style={{ background: alpha(c.color, 0.12), color: c.color, border: `1px solid ${alpha(c.color, 0.2)}` }}>
             <CatIcon item={c} size={26} />
           </div>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <div className="text-sm text-muted">Pagar</div>
-            <div className="text-lg font-bold tracking-[-0.3px] text-text">{venc.nombre}</div>
+            <div className="truncate text-lg font-bold tracking-[-0.3px] text-text">{venc.nombre}</div>
           </div>
-          <div className="text-[19px] font-bold tabular-nums text-text">${fmtMonto(venc.monto)}</div>
+        </div>
+
+        {/* Monto + día editables */}
+        <div className="mb-3.5 grid grid-cols-[2fr_1fr] gap-2.5">
+          <label className="block">
+            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Monto</div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[15px] text-muted">$</span>
+              <input inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d.]/g, ''))} className="w-full rounded-xl border border-line bg-surface py-3 pl-7 pr-3 text-[17px] font-semibold tabular-nums text-text outline-none focus:border-accent" />
+            </div>
+          </label>
+          <label className="block">
+            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Día</div>
+            <input type="number" min={1} max={31} value={dia} onChange={(e) => setDia(e.target.value)} className="w-full rounded-xl border border-line bg-surface px-2.5 py-3 text-center text-[17px] font-semibold tabular-nums text-text outline-none focus:border-accent" />
+          </label>
+        </div>
+
+        {/* Responsable (se aplica al tocar) */}
+        <div className="mb-3.5">
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">¿De quién es?</div>
+          <OwnerPicker value={owner} onChange={applyOwner} />
         </div>
 
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Desde qué caja</div>
@@ -81,19 +125,25 @@ export function PagarSheet({ venc, onClose, onConfirm }: { venc: VencimientoRow;
           })}
           {cajas.length === 0 && (
             <div className="rounded-xl border border-dashed border-line bg-surface-2 p-3.5 text-center text-[12.5px] text-muted">
-              No tenés cajas. Creá una desde Más → Cajas.
+              No tenés cuentas. Creá una desde Configuración → Cuentas.
             </div>
           )}
         </div>
 
-        <button
-          onClick={() => sel && onConfirm(sel)}
-          disabled={!sel}
-          className="flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-semibold"
-          style={{ background: sel ? 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)' : 'var(--surface-2)', color: sel ? '#fff' : 'var(--text-muted)', boxShadow: sel ? '0 8px 20px rgba(22,163,74,0.28)' : 'none' }}
-        >
-          <Icon.check size={16} strokeWidth={3} /> Confirmar pago
-        </button>
+        <div className="flex gap-2">
+          <button onClick={guardar} className="rounded-[14px] border border-line bg-surface-2 px-4 py-3.5 text-[14px] font-semibold text-text">
+            Guardar
+          </button>
+          <button
+            onClick={pagar}
+            disabled={!sel}
+            className="flex flex-1 items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-semibold"
+            style={{ background: sel ? 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)' : 'var(--surface-2)', color: sel ? '#fff' : 'var(--text-muted)', boxShadow: sel ? '0 8px 20px rgba(22,163,74,0.28)' : 'none' }}
+          >
+            <Icon.check size={16} strokeWidth={3} /> Confirmar pago
+          </button>
+        </div>
+        <div className="mt-2 text-center text-[11px] text-muted">“Guardar” ajusta monto/fecha sin marcarlo pagado.</div>
       </div>
     </AdaptiveDialog>
   );

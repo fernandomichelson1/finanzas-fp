@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Owner, UserId, VencimientoRow as VRow } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
-import { computeVencimientos } from '@/lib/selectors';
+import { computeVencimientos, usdPagadoDelMes } from '@/lib/selectors';
 import { MES_ACTUAL, addMonths, mesLabel } from '@/lib/date';
 import { fmtMonto, fmtUSD } from '@/lib/format';
 import { alpha } from '@/lib/color';
@@ -22,7 +22,6 @@ export function VencimientosScreen() {
   const gastosFijos = useFinanzasStore((s) => s.gastosFijos);
   const instancias = useFinanzasStore((s) => s.instancias);
   const usdRate = useFinanzasStore((s) => s.usdRate);
-  const pagarVencimiento = useFinanzasStore((s) => s.pagarVencimiento);
   const unpagarVencimiento = useFinanzasStore((s) => s.unpagarVencimiento);
   const updateInstancia = useFinanzasStore((s) => s.updateInstancia);
   const createGastoFijo = useFinanzasStore((s) => s.createGastoFijo);
@@ -60,6 +59,7 @@ export function VencimientosScreen() {
   const pagados = scoped.filter((v) => v.pagado);
   const totalPendiente = pendientes.reduce((s, v) => s + v.monto, 0);
   const totalPagado = pagados.reduce((s, v) => s + v.monto, 0);
+  const usdGastado = usdPagadoDelMes(instancias, gastosFijos, activeMonth, usdRate);
 
   const visibles =
     filter === 'pendientes' ? pendientes : filter === 'pagados' ? pagados : filter === 'todos' ? scoped : [];
@@ -139,7 +139,12 @@ export function VencimientosScreen() {
           <div className="relative">
             <div className="text-[11px] uppercase tracking-[1.2px] text-white/55">Total pendiente</div>
             <div className="mt-1 text-[30px] font-bold tabular-nums tracking-[-1px] text-white">${fmtMonto(totalPendiente)}</div>
-            <div className="mt-0.5 text-[12px] tabular-nums text-white/45">≈ {fmtUSD(totalPendiente, usdRate)}</div>
+            <div className="mt-0.5 text-[12px] tabular-nums text-white/45">≈ {fmtUSD(totalPendiente, usdRate)} pendiente</div>
+            {usdGastado > 0 && (
+              <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-[#22C55E]/12 px-2 py-0.5 text-[11.5px] font-semibold tabular-nums text-[#4ADE80]">
+                US$ {fmtMonto(usdGastado)} gastado este mes · al dólar del día
+              </div>
+            )}
             <div className="mt-2.5 flex items-center gap-2.5 border-t border-white/[0.08] pt-2.5">
               <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#4ADE80]">
                 <Icon.check size={12} strokeWidth={3} /> ${fmtMonto(totalPagado)} pagado
@@ -271,16 +276,7 @@ export function VencimientosScreen() {
           }}
         />
       )}
-      {payingFor && (
-        <PagarSheet
-          venc={payingFor}
-          onClose={() => setPayingFor(null)}
-          onConfirm={(cajaId) => {
-            pagarVencimiento(payingFor, cajaId);
-            setPayingFor(null);
-          }}
-        />
-      )}
+      {payingFor && <PagarSheet venc={payingFor} onClose={() => setPayingFor(null)} />}
       {menuFor && (
         <RowMenuSheet
           venc={menuFor}

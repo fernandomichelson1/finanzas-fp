@@ -2,6 +2,7 @@ import type {
   Caja,
   Categoria,
   GastoFijo,
+  Metas,
   Movimiento,
   Objetivo,
   UserId,
@@ -18,11 +19,15 @@ import { GASTOS_FIJOS_SEED, VENCIMIENTOS_INST_SEED } from '@/data/gastosFijos';
  * v4 (2026-07): quitar objetivos precargados + poner saldos de cajas en 0.
  * v5 (2026-07): recarga limpia de gastos fijos = solo 2026 (ene→jul), montos
  *   exactos del Excel, todo pagado (se quita el arrastre viejo 2019–2025).
+ * v6 (2026-07): gastos fijos con dólar blue del día por pago (usdRate) + limpiar
+ *   metas precargadas.
  */
-export const DATA_VERSION = 5;
+export const DATA_VERSION = 6;
 
 /** IDs de los objetivos que venían precargados (ya no se usan). */
 const SEED_OBJETIVO_IDS = new Set(['o1', 'o2', 'o3']);
+/** Categorías con meta precargada (se limpian en v6). */
+const SEED_META_KEYS = new Set(['ali', 'ent', 'tra', 'edu']);
 
 const PRESTAMO_CAT: Categoria = {
   id: 'prestamo',
@@ -45,6 +50,7 @@ interface Normalizable {
   movimientos?: Movimiento[];
   instancias?: VencimientoInstancia[];
   cajas?: Caja[];
+  metas?: Metas;
   dataVersion?: number;
 }
 
@@ -102,6 +108,18 @@ export function normalizeHousehold<T extends Normalizable>(data: T): T {
       ...out,
       gastosFijos: structuredClone(GASTOS_FIJOS_SEED),
       instancias: structuredClone(VENCIMIENTOS_INST_SEED),
+    };
+  }
+
+  // v6: recarga con dólar del día por pago (usdRate) + limpia metas precargadas.
+  if (from < 6) {
+    out = {
+      ...out,
+      gastosFijos: structuredClone(GASTOS_FIJOS_SEED),
+      instancias: structuredClone(VENCIMIENTOS_INST_SEED),
+      metas: Object.fromEntries(
+        Object.entries(out.metas ?? {}).filter(([k]) => !SEED_META_KEYS.has(k)),
+      ),
     };
   }
 

@@ -6,7 +6,7 @@ import { Fab } from './Fab';
 export function MobileShell({ children, onNewMov }: { children: ReactNode; onNewMov: () => void }) {
   return (
     <div className="min-h-dvh bg-bg text-text">
-      <main className="mx-auto w-full max-w-[760px] pb-28">{children}</main>
+      <main className="mx-auto w-full max-w-[760px] pb-44">{children}</main>
       <Fab onClick={onNewMov} />
       <TabBar />
     </div>
