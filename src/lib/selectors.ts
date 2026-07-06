@@ -46,6 +46,17 @@ export function balanceDelMes(movs: Movimiento[], mes: Mes = MES_ACTUAL) {
   return { ingresos, gastos, ahorro, balance: ingresos - gastos };
 }
 
+/**
+ * Acumulado del mes en USD: cada movimiento se convierte con SU cotización del
+ * momento (usdRate) y se suma. Solo cuenta los que tienen usdRate guardado.
+ */
+export function usdDelMes(movs: Movimiento[], mes: Mes = MES_ACTUAL) {
+  const mm = movimientosDelMes(movs, mes).filter((m) => m.usdRate && m.usdRate > 0);
+  const sumTipo = (t: string) =>
+    mm.filter((m) => m.tipo === t).reduce((s, m) => s + m.monto / (m.usdRate as number), 0);
+  return { gastos: sumTipo('gasto'), ingresos: sumTipo('ingreso'), ahorro: sumTipo('ahorro') };
+}
+
 /** Gasto acumulado por categoría en el mes. */
 export function gastoPorCategoria(movs: Movimiento[], mes: Mes = MES_ACTUAL): Record<string, number> {
   const acc: Record<string, number> = {};

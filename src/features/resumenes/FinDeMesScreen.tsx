@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { HISTORIA } from '@/data';
-import { balanceDelMes, gastoPorCategoria } from '@/lib/selectors';
+import { balanceDelMes, gastoPorCategoria, usdDelMes } from '@/lib/selectors';
+import { MES_ACTUAL, mesLabel } from '@/lib/date';
 import { fmtMonto } from '@/lib/format';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
@@ -21,6 +22,7 @@ export function FinDeMesScreen({ embedded = false }: { embedded?: boolean }) {
 
   const { ingresos, gastos, ahorro, balance } = useMemo(() => balanceDelMes(movimientos), [movimientos]);
   const uso = useMemo(() => gastoPorCategoria(movimientos), [movimientos]);
+  const usd = useMemo(() => usdDelMes(movimientos), [movimientos]);
   const mesAnt = HISTORIA[HISTORIA.length - 2];
   const catById = (id: string) => categories.find((c) => c.id === id);
 
@@ -48,7 +50,7 @@ export function FinDeMesScreen({ embedded = false }: { embedded?: boolean }) {
           <div className="relative flex-1 text-white">
             <div className="text-[11px] uppercase tracking-[1.2px] text-white/55">Mes cerrado</div>
             <div className="mt-1 text-[22px] font-bold tracking-[-0.4px]">Excelente</div>
-            <div className="mt-1.5 text-[12px] leading-relaxed text-white/70">+16 puntos vs abril. La tasa de ahorro subió a {((ahorro / ingresos) * 100).toFixed(1)}%.</div>
+            <div className="mt-1.5 text-[12px] leading-relaxed text-white/70">Tasa de ahorro del mes: {(ingresos > 0 ? (ahorro / ingresos) * 100 : 0).toFixed(1)}%.</div>
           </div>
         </div>
 
@@ -70,6 +72,30 @@ export function FinDeMesScreen({ embedded = false }: { embedded?: boolean }) {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* En dólares — acumulado del mes, cada movimiento al blue del momento */}
+        <section className="mb-4">
+          <SectionHeader title={`En dólares · ${mesLabel(MES_ACTUAL)}`} subtitle="cada movimiento al blue del momento" />
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                { label: 'Gastado', val: usd.gastos, color: '#F87171' },
+                { label: 'Ingresado', val: usd.ingresos, color: '#22C55E' },
+                { label: 'Ahorrado', val: usd.ahorro, color: '#FBBF24' },
+              ] as const
+            ).map((u) => (
+              <div key={u.label} className="rounded-[14px] border border-line bg-surface px-3 py-3">
+                <div className="text-[10.5px] uppercase tracking-wide text-muted">{u.label}</div>
+                <div className="mt-1 text-[16px] font-bold tabular-nums tracking-[-0.3px]" style={{ color: u.color }}>
+                  US$ {fmtMonto(u.val)}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-1.5 text-[11px] leading-relaxed text-muted">
+            Cada gasto/ingreso se convierte con el dólar blue del momento en que lo cargás y se acumula durante el mes.
           </div>
         </section>
 

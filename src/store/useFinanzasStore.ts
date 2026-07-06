@@ -118,7 +118,11 @@ export const useFinanzasStore = create<FinanzasStore>()(
       setCurrentUser: (id) => set({ currentUser: id }),
 
       // ── movimientos ──
-      addMovimiento: (mov) => set((s) => ({ movimientos: [mov, ...s.movimientos], toast: mov })),
+      addMovimiento: (mov) =>
+        set((s) => {
+          const m = { ...mov, usdRate: mov.usdRate ?? s.usdRate };
+          return { movimientos: [m, ...s.movimientos], toast: m };
+        }),
 
       // ── conceptos / categorías / usuarios ──
       createConcepto: ({ nombre, cat }) => {
@@ -168,6 +172,7 @@ export const useFinanzasStore = create<FinanzasStore>()(
           caja: null,
           user: get().currentUser,
           tags: [],
+          usdRate: get().usdRate,
         };
         set((s) => ({
           objetivos: s.objetivos.map((o) =>
@@ -260,6 +265,7 @@ export const useFinanzasStore = create<FinanzasStore>()(
           caja: cajaId,
           user: get().currentUser,
           tags: ['gasto-fijo'],
+          usdRate: get().usdRate,
         };
         set((s) => {
           const i = s.instancias.findIndex((x) => x.gfId === venc.gfId && x.mes === venc.mes);

@@ -64,6 +64,8 @@ export interface Movimiento {
   tags: string[];
   parent?: string; // p.ej. una retención cuelga de su ingreso
   notas?: string;
+  /** Cotización del dólar (ARS/USD) al momento de cargarlo, para acumular en USD. */
+  usdRate?: number;
 }
 
 // ── Dueño / responsable ──
