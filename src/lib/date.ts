@@ -47,6 +47,13 @@ export function mesLabel(mes: Mes): string {
   return `${MESES_LARGOS[m - 1]} ${y}`;
 }
 
+/** '2026-05' → 'May' (etiqueta corta para ejes/chips). */
+export function mesLabelCorto(mes: Mes): string {
+  const m = Number(mes.split('-')[1]);
+  const c = MESES_CORTOS[m - 1] ?? '';
+  return c.charAt(0).toUpperCase() + c.slice(1);
+}
+
 /** Suma (o resta) meses a un 'YYYY-MM'. addMonths('2026-07', 1) → '2026-08'. */
 export function addMonths(mes: Mes, delta: number): Mes {
   const [y, m] = mes.split('-').map(Number);

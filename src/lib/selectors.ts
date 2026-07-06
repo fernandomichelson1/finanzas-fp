@@ -11,7 +11,7 @@ import type {
   VencimientoInstancia,
   VencimientoRow,
 } from '@/types/domain';
-import { MES_ACTUAL, daysInMonth } from './date';
+import { MES_ACTUAL, addMonths, daysInMonth, mesLabelCorto } from './date';
 
 /** Movimientos de un mes ('YYYY-MM'). */
 export function movimientosDelMes(movs: Movimiento[], mes: Mes = MES_ACTUAL): Movimiento[] {
@@ -55,6 +55,99 @@ export function usdDelMes(movs: Movimiento[], mes: Mes = MES_ACTUAL) {
   const sumTipo = (t: string) =>
     mm.filter((m) => m.tipo === t).reduce((s, m) => s + m.monto / (m.usdRate as number), 0);
   return { gastos: sumTipo('gasto'), ingresos: sumTipo('ingreso'), ahorro: sumTipo('ahorro') };
+}
+
+/**
+ * Gastos "reales" de un mes combinando las dos fuentes de verdad:
+ *  - gastos fijos PAGADOS (instancias) → monto de la instancia (o el sugerido),
+ *    imputados al responsable de ese mes;
+ *  - gastos EVENTUALES (movimientos tipo 'gasto' que NO son pago de un gasto fijo,
+ *    para no duplicar los que sí generan movimiento al pagarse desde la app).
+ * Devuelve total, desglose fijos/eventuales, por categoría y por responsable.
+ */
+export interface GastosMes {
+  total: number;
+  fijos: number;
+  eventuales: number;
+  countFijos: number;
+  porCategoria: Record<string, number>;
+  porOwner: { fer: number; pao: number; compartido: number };
+}
+
+export function gastosDelMes(
+  instancias: VencimientoInstancia[],
+  gastosFijos: GastoFijo[],
+  movimientos: Movimiento[],
+  mes: Mes = MES_ACTUAL,
+): GastosMes {
+  const gfById = new Map(gastosFijos.map((g) => [g.id, g]));
+  const porCategoria: Record<string, number> = {};
+  const porOwner = { fer: 0, pao: 0, compartido: 0 };
+  let fijos = 0;
+  let countFijos = 0;
+
+  for (const inst of instancias) {
+    if (!inst.pagado || inst.mes !== mes) continue;
+    const gf = gfById.get(inst.gfId);
+    if (!gf) continue;
+    const monto = inst.monto ?? gf.montoSugerido ?? 0;
+    fijos += monto;
+    countFijos += 1;
+    porCategoria[gf.cat] = (porCategoria[gf.cat] ?? 0) + monto;
+    const owner = ownerForMonth(gf, inst.mes);
+    porOwner[owner === 'fer' ? 'fer' : owner === 'pao' ? 'pao' : 'compartido'] += monto;
+  }
+
+  let eventuales = 0;
+  for (const m of movimientos) {
+    if (m.tipo !== 'gasto' || !m.fecha.startsWith(mes)) continue;
+    if ((m.tags ?? []).includes('gasto-fijo')) continue;
+    eventuales += m.monto;
+    if (m.cat) porCategoria[m.cat] = (porCategoria[m.cat] ?? 0) + m.monto;
+    porOwner[m.user === 'pao' ? 'pao' : 'fer'] += m.monto;
+  }
+
+  return { total: fijos + eventuales, fijos, eventuales, countFijos, porCategoria, porOwner };
+}
+
+/** Serie de los últimos `n` meses (incluye `hasta`) con el gasto total real de cada uno. */
+export function serieGastosMeses(
+  instancias: VencimientoInstancia[],
+  gastosFijos: GastoFijo[],
+  movimientos: Movimiento[],
+  hasta: Mes = MES_ACTUAL,
+  n = 6,
+): { mes: Mes; label: string; gastos: number }[] {
+  return Array.from({ length: n }, (_, i) => {
+    const mes = addMonths(hasta, -(n - 1 - i));
+    return { mes, label: mesLabelCorto(mes), gastos: gastosDelMes(instancias, gastosFijos, movimientos, mes).total };
+  });
+}
+
+/**
+ * Estimación de gastos fijos del próximo mes: por cada gasto fijo activo, el monto
+ * de su instancia más reciente hasta `mes` (o el sugerido si no hay historial).
+ */
+export function fijoEstimadoProxMes(
+  instancias: VencimientoInstancia[],
+  gastosFijos: GastoFijo[],
+  mes: Mes = MES_ACTUAL,
+): number {
+  return gastosFijos
+    .filter((gf) => gf.activo !== false)
+    .reduce((s, gf) => {
+      const last = instancias
+        .filter((i) => i.gfId === gf.id && i.mes <= mes && i.monto != null)
+        .sort((a, b) => b.mes.localeCompare(a.mes))[0];
+      return s + (last?.monto ?? gf.montoSugerido ?? 0);
+    }, 0);
+}
+
+/** Primer mes con alguna instancia registrada (para acotar el navegador de meses). */
+export function primerMesConDatos(instancias: VencimientoInstancia[]): Mes | null {
+  let min: Mes | null = null;
+  for (const i of instancias) if (min === null || i.mes < min) min = i.mes;
+  return min;
 }
 
 /** Gasto acumulado por categoría en el mes. */
