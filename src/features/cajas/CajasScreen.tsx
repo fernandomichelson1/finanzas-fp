@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Caja, CajaTipo, Movimiento } from '@/types/domain';
+import type { Caja, CajaTipo, Movimiento, UserId } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { CAJA_TIPOS } from '@/data';
 import { saldosDeCajas } from '@/lib/selectors';
@@ -21,9 +21,10 @@ export function CajasScreen() {
   const currentUser = useFinanzasStore((s) => s.currentUser);
   const users = useFinanzasStore((s) => s.users);
   const createCaja = useFinanzasStore((s) => s.createCaja);
+  const updateCaja = useFinanzasStore((s) => s.updateCaja);
   const archiveCaja = useFinanzasStore((s) => s.archiveCaja);
 
-  const [view, setView] = useState<'overview' | 'detail' | 'create'>('overview');
+  const [view, setView] = useState<'overview' | 'detail' | 'create' | 'edit'>('overview');
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const saldos = useMemo(() => saldosDeCajas(cajas, movimientos), [cajas, movimientos]);
@@ -34,31 +35,41 @@ export function CajasScreen() {
     return t;
   }, [cajas, saldos]);
   const patrimonio = Object.values(totals).reduce((s, v) => s + v, 0);
+  const activa = cajas.find((c) => c.id === activeId);
 
   if (view === 'create') {
-    return <CrearCaja onBack={() => setView('overview')} onSubmit={(p) => { createCaja(p); setView('overview'); }} owner={currentUser} />;
+    return <CajaForm owner={currentUser} onBack={() => setView('overview')} onSubmit={(p) => { createCaja(p); setView('overview'); }} />;
   }
-  if (view === 'detail' && activeId) {
-    const caja = cajas.find((c) => c.id === activeId);
-    if (caja) {
-      return (
-        <CajaDetalle
-          caja={caja}
-          saldo={saldos[caja.id] ?? 0}
-          ownerName={users[caja.owner]?.nombre ?? ''}
-          movimientos={movimientos.filter((m) => m.caja === caja.id || m.caja_origen === caja.id)}
-          onBack={() => setView('overview')}
-          onArchive={() => { archiveCaja(caja.id); setView('overview'); }}
-        />
-      );
-    }
+  if (view === 'edit' && activa) {
+    return (
+      <CajaForm
+        initial={activa}
+        owner={activa.owner}
+        onBack={() => setView('detail')}
+        onSubmit={(p) => { updateCaja(activa.id, p); setView('detail'); }}
+      />
+    );
+  }
+  if (view === 'detail' && activa) {
+    return (
+      <CajaDetalle
+        caja={activa}
+        saldo={saldos[activa.id] ?? 0}
+        ownerName={users[activa.owner]?.nombre ?? ''}
+        movimientos={movimientos.filter((m) => m.caja === activa.id || m.caja_origen === activa.id)}
+        onBack={() => setView('overview')}
+        onEdit={() => setView('edit')}
+        onArchive={() => { archiveCaja(activa.id); setView('overview'); }}
+      />
+    );
   }
 
   return (
     <div className="pt-2">
       <ScreenHeader
         title="Cuentas"
-        onBack={() => navigate('/mas')}
+        subtitle="Cada uno administra las suyas · saldo editable"
+        onBack={() => navigate('/mas/configuracion')}
         action={
           <button onClick={() => setView('create')} className="rounded-[10px] bg-[#2563EB] px-3 py-1.5 text-[13px] font-medium text-white">+ Cuenta</button>
         }
@@ -88,7 +99,7 @@ export function CajasScreen() {
         <SectionCajas title={`Cuentas de ${users[otherUser]?.nombre}`} cajas={cajas.filter((c) => c.owner !== currentUser)} saldos={saldos} onTap={(c) => { setActiveId(c.id); setView('detail'); }} />
 
         <div className="px-2 py-4 text-center text-[11.5px] leading-relaxed text-muted">
-          El saldo se calcula como saldo inicial + movimientos.<br />Las cuentas no están conectadas a tus bancos reales.
+          Tocá una cuenta para ver el detalle, editarla o eliminarla.<br />El saldo se calcula como saldo inicial + movimientos. Las cuentas no están conectadas a tus bancos reales.
         </div>
       </div>
     </div>
@@ -134,7 +145,7 @@ export function CajaCard({ caja, saldo, onClick }: { caja: Caja; saldo: number; 
   );
 }
 
-function CajaDetalle({ caja, saldo, ownerName, movimientos, onBack, onArchive }: { caja: Caja; saldo: number; ownerName: string; movimientos: Movimiento[]; onBack: () => void; onArchive: () => void }) {
+function CajaDetalle({ caja, saldo, ownerName, movimientos, onBack, onEdit, onArchive }: { caja: Caja; saldo: number; ownerName: string; movimientos: Movimiento[]; onBack: () => void; onEdit: () => void; onArchive: () => void }) {
   const movs = [...movimientos].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
   const entro = movs.filter((m) => m.caja === caja.id && (m.tipo === 'ingreso' || m.tipo === 'transferencia' || m.tipo === 'ahorro')).reduce((s, m) => s + m.monto, 0);
   const salio = movs.filter((m) => (m.caja === caja.id && (m.tipo === 'gasto' || m.tipo === 'retencion')) || m.caja_origen === caja.id).reduce((s, m) => s + m.monto, 0);
@@ -145,7 +156,12 @@ function CajaDetalle({ caja, saldo, ownerName, movimientos, onBack, onArchive }:
         title={caja.nombre}
         size="md"
         onBack={onBack}
-        action={<button onClick={onArchive} className="rounded-[10px] border px-2.5 py-1.5 text-xs" style={{ borderColor: alpha('#F87171', 0.3), color: '#F87171' }}>Eliminar</button>}
+        action={
+          <div className="flex items-center gap-1.5">
+            <button onClick={onEdit} className="rounded-[10px] border border-line bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-text">Editar</button>
+            <button onClick={onArchive} className="rounded-[10px] border px-2.5 py-1.5 text-xs" style={{ borderColor: alpha('#F87171', 0.3), color: '#F87171' }}>Eliminar</button>
+          </div>
+        }
       />
       <div className="px-[18px] lg:px-0">
         <div className="relative mb-3.5 overflow-hidden rounded-[22px] p-5" style={{ background: `linear-gradient(160deg, ${caja.color} 0%, ${shade(caja.color, -0.25)} 100%)`, boxShadow: `0 14px 32px ${alpha(caja.color, 0.27)}` }}>
@@ -230,13 +246,17 @@ function fileToLogo(file: File, cb: (dataUri: string) => void) {
   reader.readAsDataURL(file);
 }
 
-function CrearCaja({ owner, onBack, onSubmit }: { owner: string; onBack: () => void; onSubmit: (p: Omit<Caja, 'id'>) => void }) {
-  const [tipo, setTipo] = useState<CajaTipo>('billetera');
-  const [nombre, setNombre] = useState('');
-  const [color, setColor] = useState('#0EA5E9');
-  const [icono, setIcono] = useState('💳');
-  const [logo, setLogo] = useState<string | undefined>(undefined);
-  const [saldo, setSaldo] = useState('');
+/** Alta y edición de una cuenta. Con `initial` prellena y actualiza; si no, crea. */
+function CajaForm({ initial, owner, onBack, onSubmit }: { initial?: Caja; owner: UserId; onBack: () => void; onSubmit: (p: Omit<Caja, 'id'>) => void }) {
+  const users = useFinanzasStore((s) => s.users);
+  const editing = !!initial;
+  const [tipo, setTipo] = useState<CajaTipo>(initial?.tipo ?? 'billetera');
+  const [nombre, setNombre] = useState(initial?.nombre ?? '');
+  const [color, setColor] = useState(initial?.color ?? '#0EA5E9');
+  const [icono, setIcono] = useState(initial?.icono ?? '💳');
+  const [logo, setLogo] = useState<string | undefined>(initial?.logo);
+  const [saldo, setSaldo] = useState(initial ? String(initial.saldo_inicial) : '');
+  const [dueno, setDueno] = useState<UserId>(initial?.owner ?? owner);
   const valid = nombre.trim().length > 0;
 
   const applyPreset = (p: (typeof PRESETS)[number]) => {
@@ -247,24 +267,42 @@ function CrearCaja({ owner, onBack, onSubmit }: { owner: string; onBack: () => v
     if (p.icono) setIcono(p.icono);
   };
 
+  const ownerIds = Object.keys(users).filter((id) => id === 'fer' || id === 'pao') as UserId[];
+
   return (
     <div className="pt-2">
-      <ScreenHeader title="Nueva cuenta" size="md" onBack={onBack} />
+      <ScreenHeader title={editing ? 'Editar cuenta' : 'Nueva cuenta'} size="md" onBack={onBack} />
       <div className="px-[18px] lg:px-0">
         <div className="mb-4">
-          <CajaCard caja={{ id: 'preview', nombre: nombre || 'Nombre de la cuenta', color, icono, logo, tipo, owner, saldo_inicial: 0 }} saldo={parseInt(saldo || '0', 10)} />
+          <CajaCard caja={{ id: 'preview', nombre: nombre || 'Nombre de la cuenta', color, icono, logo, tipo, owner: dueno, saldo_inicial: 0 }} saldo={parseInt(saldo || '0', 10)} />
         </div>
 
-        <Field label="Elegí una conocida (o creala abajo)">
-          <div className="hide-scroll flex gap-2 overflow-x-auto pb-1">
-            {PRESETS.map((p) => (
-              <button key={p.nombre} onClick={() => applyPreset(p)} className="flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2" style={{ background: nombre === p.nombre ? alpha(p.color, 0.13) : 'var(--surface)', borderColor: nombre === p.nombre ? p.color : 'var(--border)' }}>
-                <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md">
-                  <CatIcon item={p} size={20} />
-                </div>
-                <span className="whitespace-nowrap text-[13px] font-medium text-text">{p.nombre}</span>
-              </button>
-            ))}
+        {!editing && (
+          <Field label="Elegí una conocida (o creala abajo)">
+            <div className="hide-scroll flex gap-2 overflow-x-auto pb-1">
+              {PRESETS.map((p) => (
+                <button key={p.nombre} onClick={() => applyPreset(p)} className="flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2" style={{ background: nombre === p.nombre ? alpha(p.color, 0.13) : 'var(--surface)', borderColor: nombre === p.nombre ? p.color : 'var(--border)' }}>
+                  <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md">
+                    <CatIcon item={p} size={20} />
+                  </div>
+                  <span className="whitespace-nowrap text-[13px] font-medium text-text">{p.nombre}</span>
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
+
+        <Field label="¿De quién es?">
+          <div className="flex gap-1.5">
+            {ownerIds.map((id) => {
+              const active = dueno === id;
+              const col = users[id]?.color ?? '#2563EB';
+              return (
+                <button key={id} onClick={() => setDueno(id)} className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] py-2.5 text-[13px] font-semibold" style={{ background: active ? alpha(col, 0.15) : 'var(--surface)', color: active ? col : 'var(--text-muted)', border: `1px solid ${active ? col : 'var(--border)'}` }}>
+                  <Avatar userId={id} size={18} /> {users[id]?.nombre ?? id}
+                </button>
+              );
+            })}
           </div>
         </Field>
 
@@ -325,19 +363,19 @@ function CrearCaja({ owner, onBack, onSubmit }: { owner: string; onBack: () => v
           </Field>
         )}
 
-        <Field label="Saldo inicial (opcional)">
+        <Field label="Saldo actual">
           <input type="number" value={saldo} onChange={(e) => setSaldo(e.target.value)} placeholder="0" className="w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[15px] tabular-nums text-text outline-none" />
-          <div className="mt-1.5 text-[11px] text-muted">Es la plata que ya tenés en esta cuenta al crearla.</div>
+          <div className="mt-1.5 text-[11px] text-muted">La plata que tenés hoy en esta cuenta. Se usa como saldo inicial (después suma/resta tus movimientos).</div>
         </Field>
 
         <div className="py-4">
           <button
-            onClick={() => onSubmit({ nombre: nombre.trim(), tipo, color, icono, logo, saldo_inicial: parseInt(saldo || '0', 10), owner })}
+            onClick={() => onSubmit({ nombre: nombre.trim(), tipo, color, icono, logo, saldo_inicial: parseInt(saldo || '0', 10), owner: dueno })}
             disabled={!valid}
             className="w-full rounded-[14px] py-3.5 text-[15px] font-semibold"
             style={{ background: valid ? `linear-gradient(180deg, ${color} 0%, ${shade(color, -0.15)} 100%)` : 'var(--surface)', color: valid ? '#fff' : 'var(--text-muted)', boxShadow: valid ? `0 8px 20px ${alpha(color, 0.33)}` : 'none' }}
           >
-            Crear cuenta
+            {editing ? 'Guardar cambios' : 'Crear cuenta'}
           </button>
         </div>
       </div>

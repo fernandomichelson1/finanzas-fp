@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
-import { gastoPorCategoria } from '@/lib/selectors';
+import { gastosDelMes } from '@/lib/selectors';
 import { fmtMonto } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
@@ -18,6 +18,8 @@ interface Alerta {
 export function AlertasScreen() {
   const navigate = useNavigate();
   const movimientos = useFinanzasStore((s) => s.movimientos);
+  const instancias = useFinanzasStore((s) => s.instancias);
+  const gastosFijos = useFinanzasStore((s) => s.gastosFijos);
   const categories = useFinanzasStore((s) => s.categories);
   const metas = useFinanzasStore((s) => s.metas);
   const currentUser = useFinanzasStore((s) => s.currentUser);
@@ -27,14 +29,16 @@ export function AlertasScreen() {
   const [editing, setEditing] = useState<string | null>(null);
   const [input, setInput] = useState('');
 
-  const uso = useMemo(() => gastoPorCategoria(movimientos), [movimientos]);
+  // Uso real del mes por categoría: gastos fijos pagados + gastos eventuales.
+  const uso = useMemo(
+    () => gastosDelMes(instancias, gastosFijos, movimientos).porCategoria,
+    [instancias, gastosFijos, movimientos],
+  );
   const catsGasto = categories.filter((c) => c.tipo === 'gasto');
   const catById = (id: string) => categories.find((c) => c.id === id);
 
   const alertas = useMemo<Alerta[]>(() => {
-    const out: Alerta[] = [
-      { severity: 'amber', title: 'Gasto inusualmente alto en Alimentación', body: 'Hoy ($42.850) supera 2× tu promedio diario de la categoría' },
-    ];
+    const out: Alerta[] = [];
     Object.entries(metas).forEach(([cat, lim]) => {
       const used = uso[cat] ?? 0;
       const pct = used / lim;
@@ -42,7 +46,6 @@ export function AlertasScreen() {
       if (pct >= 1) out.push({ severity: 'red', title: `Superaste el límite de ${nombre}`, body: `$${fmtMonto(used - lim)} sobre el límite mensual` });
       else if (pct >= 0.8) out.push({ severity: 'amber', title: `Ya usaste el ${Math.round(pct * 100)}% en ${nombre}`, body: `Quedan $${fmtMonto(lim - used)} hasta fin de mes` });
     });
-    out.push({ severity: 'amber', title: 'Semana con gasto elevado', body: 'Esta semana gastaron 35% más que el promedio reciente' });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metas, uso]);
@@ -58,11 +61,16 @@ export function AlertasScreen() {
 
   return (
     <div className="pt-2">
-      <ScreenHeader title="Alertas y metas" onBack={() => navigate('/mas')} />
+      <ScreenHeader title="Alertas y metas" onBack={() => navigate('/mas/configuracion')} />
       <div className="px-[18px] lg:px-0">
         {/* Alertas activas */}
         <section className="mb-4">
           <SectionHeader title="Activas" subtitle={`${alertas.length} sin resolver`} />
+          {alertas.length === 0 && (
+            <div className="rounded-[14px] border border-line bg-surface px-4 py-5 text-center text-[13px] text-muted">
+              Todo en orden: ninguna categoría superó su meta este mes.
+            </div>
+          )}
           <div className="space-y-2">
             {alertas.map((a, i) => {
               const color = a.severity === 'red' ? '#DC2626' : '#F59E0B';

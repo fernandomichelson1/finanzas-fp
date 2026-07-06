@@ -31,7 +31,7 @@ export function VencimientosScreen() {
   const setGastoFijoOwnerFrom = useFinanzasStore((s) => s.setGastoFijoOwnerFrom);
   const users = useFinanzasStore((s) => s.users);
 
-  const [filter, setFilter] = useState<Filter>('pendientes');
+  const [filter, setFilter] = useState<Filter>('todos');
   const [respFilter, setRespFilter] = useState<Owner | 'todos'>('todos');
   const [activeMonth, setActiveMonth] = useState<string>(MES_ACTUAL);
   const [editingId, setEditingId] = useState<string | null>(null);

@@ -169,13 +169,11 @@ export interface AlertaMeta {
   lim: number;
 }
 
-/** Alertas de metas: rojo si se superó el límite, ámbar si se llegó al 80%. */
-export function alertasDeMetas(
-  movs: Movimiento[],
-  metas: Metas,
-  mes: Mes = MES_ACTUAL,
-): AlertaMeta[] {
-  const uso = gastoPorCategoria(movs, mes);
+/**
+ * Alertas de metas: rojo si se superó el límite, ámbar si se llegó al 80%.
+ * `uso` = gasto por categoría del mes (ver `gastosDelMes().porCategoria`).
+ */
+export function alertasDeMetas(uso: Record<string, number>, metas: Metas): AlertaMeta[] {
   const out: AlertaMeta[] = [];
   Object.entries(metas).forEach(([cat, lim]) => {
     const used = uso[cat] ?? 0;

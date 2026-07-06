@@ -6,9 +6,15 @@ import { fmtMonto } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import { Icon } from '@/components/ui/icons';
 import { UsuariosScreen } from '@/features/usuarios/UsuariosScreen';
 
 const ACCENT = '#3B82F6';
+
+const GESTION = [
+  { path: '/mas/cajas', emoji: '💼', label: 'Cuentas', sub: 'Cuentas y billeteras de cada uno' },
+  { path: '/mas/alertas', emoji: '🔔', label: 'Alertas y metas', sub: 'Límites de gasto por categoría' },
+];
 
 function fmtFecha(iso?: string) {
   if (!iso) return '';
@@ -47,6 +53,28 @@ export function ConfiguracionScreen() {
     <div className="pt-2">
       <ScreenHeader title="Configuración" onBack={() => navigate('/mas')} />
       <div className="px-[18px] lg:px-0">
+        {/* Gestión: cuentas, alertas y metas */}
+        <section className="mb-6">
+          <SectionHeader title="Gestión" subtitle="cuentas, alertas y metas" />
+          <div className="overflow-hidden rounded-[18px] border border-line bg-surface">
+            {GESTION.map((g, i) => (
+              <button
+                key={g.path}
+                onClick={() => navigate(g.path)}
+                className="flex w-full items-center gap-3.5 bg-surface px-4 py-3.5 text-left transition-colors hover:bg-surface-2"
+                style={{ borderBottom: i === GESTION.length - 1 ? 'none' : '1px solid var(--border)' }}
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-line bg-surface-2 text-lg">{g.emoji}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[14.5px] font-medium text-text">{g.label}</div>
+                  <div className="mt-0.5 text-xs text-muted">{g.sub}</div>
+                </div>
+                <Icon.chev size={16} className="text-muted" />
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* Apariencia */}
         <section className="mb-6">
           <SectionHeader title="Apariencia" subtitle="tema de la app" />

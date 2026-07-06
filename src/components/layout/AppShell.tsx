@@ -11,7 +11,6 @@ import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
 import { MovimientosScreen } from '@/features/movimientos/MovimientosScreen';
 import { AhorrosScreen } from '@/features/ahorros/AhorrosScreen';
 import { AnalisisScreen } from '@/features/analisis/AnalisisScreen';
-import { EstadisticasScreen } from '@/features/estadisticas/EstadisticasScreen';
 import { MasScreen } from '@/features/mas/MasScreen';
 import { CategoriasScreen } from '@/features/categorias/CategoriasScreen';
 import { CajasScreen } from '@/features/cajas/CajasScreen';
@@ -27,7 +26,7 @@ function AppRoutes() {
       <Route path="/movimientos" element={<MovimientosScreen />} />
       <Route path="/ahorros" element={<AhorrosScreen />} />
       <Route path="/analisis" element={<AnalisisScreen />} />
-      <Route path="/estadisticas" element={<EstadisticasScreen />} />
+      <Route path="/estadisticas" element={<Navigate to="/analisis" replace />} />
       <Route path={VENCIMIENTOS_PATH} element={<VencimientosScreen />} />
       <Route path="/mas" element={<MasScreen />} />
       <Route path="/mas/cajas" element={<CajasScreen />} />

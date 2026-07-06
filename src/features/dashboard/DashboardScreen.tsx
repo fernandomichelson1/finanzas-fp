@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Categoria } from '@/types/domain';
+import type { Categoria, VencimientoRow } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { useUserById } from '@/store/lookups';
 import {
   alertasDeMetas,
   balanceDelMes,
   computeVencimientos,
+  gastosDelMes,
 } from '@/lib/selectors';
-import { MES_ACTUAL, daysUntil, fechaCorta, mesLabel } from '@/lib/date';
+import { MES_ACTUAL, addMonths, daysUntil, fechaCorta, mesLabel } from '@/lib/date';
 import { fmtARSCompact, fmtMonto, fmtUSD } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
 import { Avatar } from '@/components/ui/Avatar';
@@ -16,8 +17,8 @@ import { CatIcon } from '@/components/ui/CatIcon';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Icon } from '@/components/ui/icons';
 import { MovRow } from '@/components/movimientos/MovRow';
+import { PagarSheet } from '@/features/vencimientos/sheets';
 
-const DELTAS = { ingresos: 8.2, gastos: -3.5, balance: 22.1, ahorro: 14.0 };
 const PERIODOS = ['Semana', 'Mes actual', 'Mes ant.', 'Año'];
 
 export function DashboardScreen() {
@@ -30,19 +31,31 @@ export function DashboardScreen() {
   const categories = useFinanzasStore((s) => s.categories);
   const usdRate = useFinanzasStore((s) => s.usdRate);
   const currentUser = useFinanzasStore((s) => s.currentUser);
+  const pagarVencimiento = useFinanzasStore((s) => s.pagarVencimiento);
   const u = useUserById(currentUser);
 
   const [periodo, setPeriodo] = useState('Mes actual');
+  const [payingFor, setPayingFor] = useState<VencimientoRow | null>(null);
 
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])) as Record<string, Categoria>,
     [categories],
   );
 
-  const { ingresos, gastos, ahorro, balance } = useMemo(
-    () => balanceDelMes(movimientos),
-    [movimientos],
+  // Gastos reales del mes (fijos pagados + eventuales) y flujo real (ingresos/ahorro).
+  const cur = useMemo(
+    () => gastosDelMes(instancias, gastosFijos, movimientos),
+    [instancias, gastosFijos, movimientos],
   );
+  const prev = useMemo(
+    () => gastosDelMes(instancias, gastosFijos, movimientos, addMonths(MES_ACTUAL, -1)),
+    [instancias, gastosFijos, movimientos],
+  );
+  const flujo = useMemo(() => balanceDelMes(movimientos), [movimientos]);
+  const gastos = cur.total;
+  const ingresos = flujo.ingresos;
+  const ahorro = flujo.ahorro;
+  const deltaGastosPct = prev.total > 0 ? ((cur.total - prev.total) / prev.total) * 100 : null;
 
   const vencimientos = useMemo(
     () =>
@@ -63,7 +76,7 @@ export function DashboardScreen() {
     [movimientos],
   );
 
-  const alerts = useMemo(() => alertasDeMetas(movimientos, metas), [movimientos, metas]);
+  const alerts = useMemo(() => alertasDeMetas(cur.porCategoria, metas), [cur, metas]);
 
   return (
     <div className="px-[18px] pt-2 lg:px-0">
@@ -127,31 +140,34 @@ export function DashboardScreen() {
         <div className="relative">
           <div className="mb-1.5 flex items-center justify-between">
             <div className="text-xs uppercase tracking-[1.2px] text-white/55">
-              Balance · {mesLabel(MES_ACTUAL)}
+              Gastos · {mesLabel(MES_ACTUAL)}
             </div>
-            <div
-              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-              style={{
-                background: balance >= 0 ? 'rgba(22,163,74,0.18)' : 'rgba(220,38,38,0.18)',
-                color: balance >= 0 ? '#4ADE80' : '#F87171',
-              }}
-            >
-              {DELTAS.balance > 0 ? <Icon.up size={12} /> : <Icon.down size={12} />}
-              {Math.abs(DELTAS.balance).toFixed(1)}%
-            </div>
+            {deltaGastosPct !== null && (
+              <div
+                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
+                style={{
+                  background: deltaGastosPct <= 0 ? 'rgba(22,163,74,0.18)' : 'rgba(220,38,38,0.18)',
+                  color: deltaGastosPct <= 0 ? '#4ADE80' : '#F87171',
+                }}
+                title="Vs mes anterior"
+              >
+                {deltaGastosPct <= 0 ? <Icon.down size={12} /> : <Icon.up size={12} />}
+                {Math.abs(deltaGastosPct).toFixed(1)}%
+              </div>
+            )}
           </div>
-          <div className="mt-1 text-[38px] font-bold tabular-nums tracking-[-1.2px] text-white">
-            {balance >= 0 ? '' : '−'}${fmtMonto(Math.abs(balance))}
+          <div className="mt-1 text-[30px] font-bold tabular-nums tracking-[-1px] text-white sm:text-[34px] lg:text-[38px]">
+            ${fmtMonto(gastos)}
           </div>
           <div className="mt-1 text-[12px] tabular-nums text-white/45">
-            ≈ {fmtUSD(balance, usdRate)} · ${fmtMonto(usdRate)}/US$
+            ≈ {fmtUSD(gastos, usdRate)} · ${fmtMonto(usdRate)}/US$
           </div>
           <div className="mt-[18px] flex gap-4 border-t border-white/[0.07] pt-4">
-            <MiniStat label="Ingresos" value={ingresos} color="#22C55E" sign="+" />
+            <MiniStat label="Fijos" value={cur.fijos} color="#FB923C" sign="−" />
             <div className="w-px bg-white/[0.07]" />
-            <MiniStat label="Gastos" value={gastos} color="#F87171" sign="−" />
+            <MiniStat label="Varios" value={cur.eventuales} color="#F87171" sign="−" />
             <div className="w-px bg-white/[0.07]" />
-            <MiniStat label="Ahorro" value={ahorro} color="#FBBF24" sign="" />
+            <MiniStat label={ingresos > 0 ? 'Ingresos' : 'Ahorro'} value={ingresos > 0 ? ingresos : ahorro} color={ingresos > 0 ? '#22C55E' : '#FBBF24'} sign={ingresos > 0 ? '+' : ''} />
           </div>
         </div>
       </div>
@@ -217,7 +233,12 @@ export function DashboardScreen() {
               return (
                 <div
                   key={v.id}
-                  className="relative flex flex-col overflow-hidden rounded-2xl border border-line bg-surface p-3.5"
+                  onClick={() => setPayingFor(v)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setPayingFor(v)}
+                  title={`Pagar ${v.nombre}`}
+                  className="relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-line bg-surface p-3.5 transition-colors hover:border-line-strong hover:bg-surface-2"
                 >
                   <div
                     className="pointer-events-none absolute -right-5 -top-7 h-24 w-24"
@@ -314,6 +335,17 @@ export function DashboardScreen() {
           </div>
         </section>
       </div>
+
+      {payingFor && (
+        <PagarSheet
+          venc={payingFor}
+          onClose={() => setPayingFor(null)}
+          onConfirm={(cajaId) => {
+            pagarVencimiento(payingFor, cajaId);
+            setPayingFor(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -331,7 +363,7 @@ function MiniStat({
 }) {
   return (
     <div className="min-w-0 flex-1">
-      <div className="mb-1 text-[10.5px] uppercase tracking-[0.8px] text-white/55">{label}</div>
+      <div className="mb-1 truncate text-[10.5px] uppercase tracking-[0.8px] text-white/55">{label}</div>
       <div
         className="whitespace-nowrap text-[15px] font-semibold tabular-nums tracking-[-0.3px]"
         style={{ color }}

@@ -1,4 +1,5 @@
 import type {
+  Caja,
   Categoria,
   GastoFijo,
   Movimiento,
@@ -10,12 +11,16 @@ import type {
 import { GASTOS_FIJOS_SEED, VENCIMIENTOS_INST_SEED } from '@/data/gastosFijos';
 
 /**
- * Versión del "dato del hogar". Al subirla, `normalizeHousehold` corre una
- * migración ÚNICA sobre el estado guardado (local + nube) para propagar cambios
- * de datos a los clientes ya existentes.
+ * Versión del "dato del hogar". Al subirla, `normalizeHousehold` corre las
+ * migraciones pendientes sobre el estado guardado (local + nube) para propagar
+ * cambios de datos a los clientes ya existentes.
  * v3 (2026-07): reimport de gastos fijos desde el Excel + empezar limpio.
+ * v4 (2026-07): quitar objetivos precargados + poner saldos de cajas en 0.
  */
-export const DATA_VERSION = 3;
+export const DATA_VERSION = 4;
+
+/** IDs de los objetivos que venían precargados (ya no se usan). */
+const SEED_OBJETIVO_IDS = new Set(['o1', 'o2', 'o3']);
 
 const PRESTAMO_CAT: Categoria = {
   id: 'prestamo',
@@ -37,6 +42,7 @@ interface Normalizable {
   categories?: Categoria[];
   movimientos?: Movimiento[];
   instancias?: VencimientoInstancia[];
+  cajas?: Caja[];
   dataVersion?: number;
 }
 
@@ -61,15 +67,16 @@ export function normalizeHousehold<T extends Normalizable>(data: T): T {
     return { ...c, uso };
   });
 
-  const base = { ...data, users, objetivos, gastosFijos, categories, dataVersion: DATA_VERSION };
+  const from = data.dataVersion ?? 0;
+  let out: T = { ...data, users, objetivos, gastosFijos, categories };
 
-  // Migración única (v<3): reemplaza gastos fijos por los del Excel + empieza limpio.
-  if ((data.dataVersion ?? 0) < DATA_VERSION) {
+  // v3: reemplaza gastos fijos por los del Excel + empieza limpio.
+  if (from < 3) {
     if (!categories.some((c) => c.id === 'prestamo')) {
       categories = [...categories, structuredClone(PRESTAMO_CAT)];
     }
-    return {
-      ...base,
+    out = {
+      ...out,
       gastosFijos: structuredClone(GASTOS_FIJOS_SEED),
       instancias: structuredClone(VENCIMIENTOS_INST_SEED),
       movimientos: [] as Movimiento[],
@@ -77,5 +84,15 @@ export function normalizeHousehold<T extends Normalizable>(data: T): T {
       categories,
     };
   }
-  return base;
+
+  // v4: quita los objetivos precargados (deja los que crearon) y pone saldos de cajas en 0.
+  if (from < 4) {
+    out = {
+      ...out,
+      objetivos: (out.objetivos ?? []).filter((o) => !SEED_OBJETIVO_IDS.has(o.id)),
+      cajas: (out.cajas ?? data.cajas ?? []).map((c) => ({ ...c, saldo_inicial: 0 })),
+    };
+  }
+
+  return { ...out, dataVersion: DATA_VERSION };
 }

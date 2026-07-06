@@ -61,6 +61,8 @@ interface Actions {
   // ahorros
   logAporte: (objetivoId: string, monto: number) => void;
   createObjetivo: (payload: Omit<Objetivo, 'id'>) => Objetivo;
+  updateObjetivo: (id: string, payload: Partial<Objetivo>) => void;
+  deleteObjetivo: (id: string) => void;
 
   // metas
   setMeta: (catId: string, value: number) => void;
@@ -72,6 +74,7 @@ interface Actions {
 
   // cajas
   createCaja: (payload: Omit<Caja, 'id'>) => Caja;
+  updateCaja: (id: string, payload: Partial<Caja>) => void;
   archiveCaja: (id: string) => void;
 
   // gastos fijos / vencimientos
@@ -188,6 +191,9 @@ export const useFinanzasStore = create<FinanzasStore>()(
         set((s) => ({ objetivos: [...s.objetivos, nuevo] }));
         return nuevo;
       },
+      updateObjetivo: (id, payload) =>
+        set((s) => ({ objetivos: s.objetivos.map((o) => (o.id === id ? { ...o, ...payload } : o)) })),
+      deleteObjetivo: (id) => set((s) => ({ objetivos: s.objetivos.filter((o) => o.id !== id) })),
 
       // ── metas ──
       setMeta: (catId, value) => set((s) => ({ metas: { ...s.metas, [catId]: value } })),
@@ -221,6 +227,8 @@ export const useFinanzasStore = create<FinanzasStore>()(
         set((s) => ({ cajas: [...s.cajas, nueva] }));
         return nueva;
       },
+      updateCaja: (id, payload) =>
+        set((s) => ({ cajas: s.cajas.map((c) => (c.id === id ? { ...c, ...payload } : c)) })),
       archiveCaja: (id) => set((s) => ({ cajas: s.cajas.filter((c) => c.id !== id) })),
 
       // ── gastos fijos / vencimientos ──
