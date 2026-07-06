@@ -30,6 +30,10 @@ interface UiState {
   toast: Movimiento | null;
   /** Cotización del dólar (ARS por USD) para la vista en dólares. */
   usdRate: number;
+  /** Fecha de la última cotización del blue (ISO). */
+  usdFecha?: string;
+  /** True si el usuario fijó el valor a mano (no se pisa con el blue automático). */
+  usdManual?: boolean;
 }
 
 interface Actions {
@@ -89,6 +93,7 @@ interface Actions {
   showToast: (mov: Movimiento) => void;
   clearToast: () => void;
   setUsdRate: (rate: number) => void;
+  setUsdBlue: (venta: number, fecha: string) => void;
 
   // dev / backend seam
   resetData: () => void;
@@ -300,7 +305,9 @@ export const useFinanzasStore = create<FinanzasStore>()(
       // ── ui ──
       showToast: (mov) => set({ toast: mov }),
       clearToast: () => set({ toast: null }),
-      setUsdRate: (rate) => set({ usdRate: rate > 0 ? rate : 1 }),
+      setUsdRate: (rate) => set({ usdRate: rate > 0 ? rate : 1, usdManual: true }),
+      setUsdBlue: (venta, fecha) =>
+        set({ usdRate: venta > 0 ? venta : 1, usdFecha: fecha, usdManual: false }),
 
       // ── reset (dev) ──
       resetData: () => set({ ...buildInitialData() }),

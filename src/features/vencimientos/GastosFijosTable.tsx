@@ -87,8 +87,14 @@ function Row({
       className="grid grid-cols-[1fr_150px_84px_150px_130px_40px] items-center gap-2 px-4 py-2 transition-colors hover:bg-surface-2/40"
       style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)', opacity: v.pagado ? 0.7 : 1 }}
     >
-      {/* Gasto */}
-      <div className="flex min-w-0 items-center gap-2.5">
+      {/* Gasto (clic → pagar si está pendiente) */}
+      <div
+        className="flex min-w-0 items-center gap-2.5"
+        onClick={!v.pagado ? () => onPagar(v) : undefined}
+        role={!v.pagado ? 'button' : undefined}
+        title={!v.pagado ? 'Pagar' : undefined}
+        style={{ cursor: v.pagado ? 'default' : 'pointer' }}
+      >
         <div
           className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg"
           style={{ background: alpha(cat.color, 0.12), color: cat.color, border: `1px solid ${alpha(cat.color, 0.2)}` }}

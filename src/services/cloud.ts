@@ -5,7 +5,7 @@ import { buildInitialData, type FinanzasData } from '@/data';
 import { normalizeHousehold } from '@/lib/migrate';
 
 /** Lo que se guarda/sincroniza del hogar (colecciones + cotización USD). */
-export type SyncedState = FinanzasData & { usdRate: number };
+export type SyncedState = FinanzasData & { usdRate: number; usdFecha?: string; usdManual?: boolean };
 
 const TABLE = 'household_state';
 const ROW_ID = 'main';
@@ -23,6 +23,8 @@ export function extractSynced(s: FinanzasStore): SyncedState {
     cajas: s.cajas,
     eventos: s.eventos,
     usdRate: s.usdRate,
+    usdFecha: s.usdFecha,
+    usdManual: s.usdManual,
     dataVersion: s.dataVersion,
   };
 }

@@ -5,9 +5,20 @@ import { LoginScreen } from '@/features/login/LoginScreen';
 import { AppShell } from '@/components/layout/AppShell';
 import { isSupabaseEnabled } from '@/services/supabase/client';
 import { ensureRemoteState, startCloudSync } from '@/services/cloud';
+import { fetchBlueVenta } from '@/services/dolar';
 
 export default function App() {
   const loggedIn = useFinanzasStore((s) => s.loggedIn);
+
+  // Cotización del dólar blue (venta), automática — salvo override manual.
+  useEffect(() => {
+    if (useFinanzasStore.getState().usdManual) return;
+    fetchBlueVenta().then((b) => {
+      if (b && !useFinanzasStore.getState().usdManual) {
+        useFinanzasStore.getState().setUsdBlue(b.venta, b.fecha);
+      }
+    });
+  }, []);
 
   // Local-first: la UI se muestra al instante con lo persistido. Si el perfil ya
   // estaba elegido, refrescamos de la nube en segundo plano (sin bloquear la UI).

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
+import { fetchBlueVenta } from '@/services/dolar';
+import { fmtMonto } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SectionHeader } from '@/components/ui/SectionHeader';
@@ -8,17 +10,37 @@ import { UsuariosScreen } from '@/features/usuarios/UsuariosScreen';
 
 const ACCENT = '#3B82F6';
 
+function fmtFecha(iso?: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime())
+    ? ''
+    : d.toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
 export function ConfiguracionScreen() {
   const navigate = useNavigate();
   const usdRate = useFinanzasStore((s) => s.usdRate);
+  const usdFecha = useFinanzasStore((s) => s.usdFecha);
+  const usdManual = useFinanzasStore((s) => s.usdManual);
   const setUsdRate = useFinanzasStore((s) => s.setUsdRate);
+  const setUsdBlue = useFinanzasStore((s) => s.setUsdBlue);
   const { mode, setMode } = useTheme();
   const [rate, setRate] = useState(String(usdRate));
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => setRate(String(usdRate)), [usdRate]);
 
   const commitRate = () => {
     const n = Number(String(rate).replace(/[^\d.]/g, ''));
     if (n > 0) setUsdRate(n);
     else setRate(String(usdRate));
+  };
+  const actualizarBlue = async () => {
+    setBusy(true);
+    const b = await fetchBlueVenta();
+    if (b) setUsdBlue(b.venta, b.fecha);
+    setBusy(false);
   };
 
   return (
@@ -51,21 +73,42 @@ export function ConfiguracionScreen() {
 
         {/* Dólar */}
         <section className="mb-6">
-          <SectionHeader title="Cotización del dólar" subtitle="ARS por USD" />
+          <SectionHeader title="Cotización del dólar" subtitle="ARS por USD · dólar blue (venta)" />
           <div className="rounded-2xl border border-line bg-surface p-4">
-            <div className="relative max-w-[220px]">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">$</span>
-              <input
-                value={rate}
-                inputMode="numeric"
-                onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
-                onBlur={commitRate}
-                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                className="w-full rounded-xl border border-line bg-surface-2 py-2.5 pl-7 pr-3 text-[15px] font-semibold tabular-nums text-text outline-none focus:border-accent"
-              />
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[26px] font-bold tabular-nums tracking-[-0.5px] text-text">${fmtMonto(usdRate)}</div>
+                <div className="mt-0.5 text-[11.5px] text-muted">
+                  {usdManual
+                    ? '✍️ Fijado a mano'
+                    : `🔵 Dólar blue (venta)${usdFecha ? ' · ' + fmtFecha(usdFecha) : ''}`}
+                </div>
+              </div>
+              <button
+                onClick={actualizarBlue}
+                disabled={busy}
+                className="rounded-[10px] border px-3 py-2 text-[12.5px] font-semibold"
+                style={{ background: busy ? 'var(--surface-2)' : `color-mix(in srgb, ${ACCENT} 12%, transparent)`, borderColor: ACCENT, color: ACCENT }}
+              >
+                {busy ? 'Actualizando…' : 'Actualizar del blue'}
+              </button>
             </div>
-            <div className="mt-2 text-[12px] text-muted">
-              Se usa para mostrar los montos en dólares (balance, gastos fijos, etc.).
+            <div className="mt-3 border-t border-line pt-3">
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Fijar a mano (opcional)</div>
+              <div className="relative max-w-[220px]">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">$</span>
+                <input
+                  value={rate}
+                  inputMode="numeric"
+                  onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
+                  onBlur={commitRate}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                  className="w-full rounded-xl border border-line bg-surface-2 py-2.5 pl-7 pr-3 text-[15px] font-semibold tabular-nums text-text outline-none focus:border-accent"
+                />
+              </div>
+              <div className="mt-1.5 text-[11px] text-muted">
+                Si lo cambiás a mano, deja de actualizarse solo hasta que toques “Actualizar del blue”.
+              </div>
             </div>
           </div>
         </section>
