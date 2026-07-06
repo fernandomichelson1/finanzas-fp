@@ -71,6 +71,22 @@ function applyRemote(state: SyncedState) {
   applyingRemote = false;
 }
 
+/**
+ * Trae el estado de la nube y lo aplica. Refuerzo por si el realtime no está
+ * configurado en Supabase: al volver a la pestaña/app se ven los cambios del otro.
+ * No pisa un cambio local sin guardar (si hay un save pendiente, no hace nada).
+ */
+export async function refreshFromRemote(): Promise<void> {
+  if (!supabase || applyingRemote || saveTimer) return;
+  const remote = await fetchRemote();
+  if (remote) applyRemote(remote);
+}
+
+function onVisible() {
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+  void refreshFromRemote();
+}
+
 /** Arranca la sync en vivo (idempotente). Llamar después de hidratar el store. */
 export function startCloudSync() {
   if (!supabase || started) return;
@@ -91,12 +107,18 @@ export function startCloudSync() {
       if (next) applyRemote(next);
     })
     .subscribe();
+
+  // Refuerzo: al volver a la pestaña/ventana, refrescamos desde la nube.
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
+  if (typeof window !== 'undefined') window.addEventListener('focus', onVisible);
 }
 
 export function stopCloudSync() {
   if (saveTimer) clearTimeout(saveTimer);
   unsubStore?.();
   if (channel && supabase) supabase.removeChannel(channel);
+  if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
+  if (typeof window !== 'undefined') window.removeEventListener('focus', onVisible);
   unsubStore = null;
   channel = null;
   started = false;

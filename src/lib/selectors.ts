@@ -208,8 +208,19 @@ export function computeVencimientos(
 ): VencimientoRow[] {
   const [y, m] = mes.split('-').map(Number);
   const insts = instancias ?? [];
+  const esPasado = mes < MES_ACTUAL;
+  const ventanaDesde = addMonths(mes, -2); // "recurrente" = tuvo pago en los últimos 3 meses
   return (gastosFijos ?? [])
     .filter((gf) => gf.activo !== false)
+    .filter((gf) => {
+      // Meses cerrados: solo lo que realmente tuvo pago ese mes (sin pendientes viejos).
+      if (esPasado) return insts.some((i) => i.gfId === gf.id && i.mes === mes);
+      // Mes actual / futuros: gastos nuevos (sin historial) o recurrentes (activos hace ≤3 meses).
+      // Así los esporádicos que no se pagan hace rato no aparecen como "pendientes".
+      const tiene = insts.some((i) => i.gfId === gf.id);
+      if (!tiene) return true;
+      return insts.some((i) => i.gfId === gf.id && i.mes >= ventanaDesde && i.mes <= mes);
+    })
     .map((gf) => {
       const inst = insts.find((i) => i.gfId === gf.id && i.mes === mes);
       // Sin instancia propia este mes → arrastramos el monto de la instancia

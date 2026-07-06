@@ -16,8 +16,10 @@ import { GASTOS_FIJOS_SEED, VENCIMIENTOS_INST_SEED } from '@/data/gastosFijos';
  * cambios de datos a los clientes ya existentes.
  * v3 (2026-07): reimport de gastos fijos desde el Excel + empezar limpio.
  * v4 (2026-07): quitar objetivos precargados + poner saldos de cajas en 0.
+ * v5 (2026-07): recarga limpia de gastos fijos = solo 2026 (ene→jul), montos
+ *   exactos del Excel, todo pagado (se quita el arrastre viejo 2019–2025).
  */
-export const DATA_VERSION = 4;
+export const DATA_VERSION = 5;
 
 /** IDs de los objetivos que venían precargados (ya no se usan). */
 const SEED_OBJETIVO_IDS = new Set(['o1', 'o2', 'o3']);
@@ -91,6 +93,15 @@ export function normalizeHousehold<T extends Normalizable>(data: T): T {
       ...out,
       objetivos: (out.objetivos ?? []).filter((o) => !SEED_OBJETIVO_IDS.has(o.id)),
       cajas: (out.cajas ?? data.cajas ?? []).map((c) => ({ ...c, saldo_inicial: 0 })),
+    };
+  }
+
+  // v5: recarga limpia de gastos fijos e instancias (solo 2026, todo pagado).
+  if (from < 5) {
+    out = {
+      ...out,
+      gastosFijos: structuredClone(GASTOS_FIJOS_SEED),
+      instancias: structuredClone(VENCIMIENTOS_INST_SEED),
     };
   }
 
