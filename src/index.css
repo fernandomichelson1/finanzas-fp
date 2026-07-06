@@ -1,0 +1,149 @@
+@import 'tailwindcss';
+
+/* ─────────────────────────────────────────────────────────────
+   Design tokens → Tailwind utilities (v4 CSS-first config).
+   `inline` makes utilities reference the live CSS var, so flipping
+   [data-theme] swaps every color at once.
+   ───────────────────────────────────────────────────────────── */
+@theme inline {
+  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-elevated: var(--surface-elevated);
+  --color-tabbar: var(--tabbar-bg);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+  --color-savings: var(--savings);
+  --color-transfer: #60a5fa;
+  --color-retencion: #94a3b8;
+  --color-accent: #3b82f6;
+}
+
+/* ── Tema dark (default) ── */
+:root,
+[data-theme='dark'] {
+  --bg: #0e1422;
+  --surface: #1b2231;
+  --surface-2: #252d3f;
+  --surface-elevated: #1f2737;
+  --tabbar-bg: rgba(20, 26, 46, 0.85);
+  --text: #f1f5f9;
+  --text-muted: rgba(241, 245, 249, 0.58);
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --income: #22c55e;
+  --expense: #f87171;
+  --savings: #fbbf24;
+  color-scheme: dark;
+}
+
+/* ── Tema light ── */
+[data-theme='light'] {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f1f5;
+  --surface-elevated: #ffffff;
+  --tabbar-bg: rgba(255, 255, 255, 0.85);
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.2);
+  --income: #16a34a;
+  --expense: #dc2626;
+  --savings: #d97706;
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Textura de puntos sutil del tema dark */
+  [data-theme='dark'] body {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
+  }
+}
+
+/* ── Animaciones (slide-up sheets, slide-down toast, fade-in backdrop) ── */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes slide-down {
+  from {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .animate-slide-up {
+    animation: slide-up 280ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  .animate-slide-down {
+    animation: slide-down 300ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  .animate-fade-in {
+    animation: fade-in 200ms ease-out;
+  }
+  .animate-pop-in {
+    animation: pop-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  /* Oculta scrollbars en carruseles horizontales */
+  .hide-scroll {
+    scrollbar-width: none;
+  }
+  .hide-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}

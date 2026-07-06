@@ -1,0 +1,46 @@
+# dependencies
+node_modules
+.pnp
+.pnp.js
+
+# build
+dist
+dist-ssr
+*.local
+
+# secrets / env (nunca subir; .env.example sí)
+.env
+.env.*
+!.env.example
+
+# editor / os / tooling local (tiene rutas y tokens locales)
+.claude/settings.local.json
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# build info
+*.tsbuildinfo
+
+# assets de referencia / diseño (no hacen falta para la app ni el deploy)
+/design_handoff_finanzas_fp
+/Imagenes
+/Logos
+/Matriz
+
+# misc
+Finanzas F&P.zip
+.vercel

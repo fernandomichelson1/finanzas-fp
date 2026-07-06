@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "finanzas-fp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "paofitness-app",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd '/Users/fermichel/Desktop/Sistema PaoFitness/paofitness-app' && npx expo start --web --port 8081"],
+      "port": 8081
+    },
+    {
+      "name": "paofitness-web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd '/Users/fermichel/Desktop/Sistema PaoFitness/paofitness-web' && npm run dev -- --port 5174 --strictPort"],
+      "port": 5174
+    }
+  ]
+}
