@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { VENCIMIENTOS_PATH } from '@/navigation/routes';
@@ -50,6 +50,29 @@ export function AppShell() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const openDialog = () => setDialogOpen(true);
   const content = <AppRoutes />;
+
+  // Al hacer foco en un campo numérico, selecciona todo el número (escribís y reemplaza).
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      const el = e.target;
+      if (
+        el instanceof HTMLInputElement &&
+        (el.type === 'number' || el.inputMode === 'numeric' || el.inputMode === 'decimal')
+      ) {
+        const sel = () => {
+          try {
+            el.select();
+          } catch {
+            /* type=number en algunos navegadores no soporta select; se ignora */
+          }
+        };
+        sel(); // foco por teclado/programático
+        setTimeout(sel, 0); // vuelve a seleccionar tras el clic/tap (mouseup mueve el cursor)
+      }
+    };
+    document.addEventListener('focusin', onFocusIn);
+    return () => document.removeEventListener('focusin', onFocusIn);
+  }, []);
 
   return (
     <>

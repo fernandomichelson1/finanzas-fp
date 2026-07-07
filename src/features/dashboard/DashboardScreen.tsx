@@ -94,6 +94,15 @@ export function DashboardScreen() {
   );
   const totalAVencer = vencimientos.reduce((s, v) => s + v.monto, 0);
 
+  // Lo que falta pagar este mes (todos los vencimientos impagos del mes en curso).
+  const faltaPagar = useMemo(
+    () =>
+      computeVencimientos(gastosFijos, instancias, MES_ACTUAL)
+        .filter((v) => !v.pagado)
+        .reduce((s, v) => s + v.monto, 0),
+    [gastosFijos, instancias],
+  );
+
   // Movimientos de HOY (el "Ver todos" abre la lista completa).
   const delDia = useMemo(
     () =>
@@ -162,7 +171,28 @@ export function DashboardScreen() {
             )}
           </div>
           <div className="mt-1 text-[30px] font-bold tabular-nums tracking-[-1px] text-white sm:text-[34px] lg:text-[38px]">${fmtMonto(gastos)}</div>
-          <div className="mt-1 text-[12px] tabular-nums text-white/45">≈ {fmtUSD(gastos, usdRate)} · ${fmtMonto(usdRate)}/US$</div>
+          <div className="mt-1 text-[12px] tabular-nums text-white/45">gastado · ≈ {fmtUSD(gastos, usdRate)}</div>
+
+          {/* Falta pagar — lo más relevante del día a día */}
+          <button
+            onClick={() => navigate('/vencimientos')}
+            className="mt-3 flex w-full items-center justify-between rounded-2xl px-3.5 py-3 text-left transition-colors"
+            style={{
+              background: faltaPagar > 0 ? 'rgba(245,158,11,0.14)' : 'rgba(22,163,74,0.14)',
+              border: `1px solid ${faltaPagar > 0 ? 'rgba(245,158,11,0.35)' : 'rgba(22,163,74,0.35)'}`,
+            }}
+          >
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.8px]" style={{ color: faltaPagar > 0 ? '#FCD34D' : '#4ADE80' }}>
+                {faltaPagar > 0 ? 'Falta pagar este mes' : 'Este mes'}
+              </div>
+              <div className="mt-0.5 text-[22px] font-bold tabular-nums tracking-[-0.5px]" style={{ color: faltaPagar > 0 ? '#FBBF24' : '#4ADE80' }}>
+                {faltaPagar > 0 ? `$${fmtMonto(faltaPagar)}` : 'Todo pagado ✓'}
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold text-white/45">Ver →</span>
+          </button>
+
           <div className="mt-[18px] flex gap-4 border-t border-white/[0.07] pt-4">
             <MiniStat label="Fijos" value={cur.fijos} color="#FB923C" sign="−" />
             <div className="w-px bg-white/[0.07]" />
