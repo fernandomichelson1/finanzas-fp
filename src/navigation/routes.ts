@@ -39,7 +39,7 @@ export const SIDEBAR_MODULES: NavItem[] = [
 export const MAS_MENU: NavItem[] = [
   { id: 'analisis', label: 'Análisis', path: '/analisis', emoji: '📈', sub: 'Estadísticas y fin de mes' },
   { id: 'eventos', label: 'Eventos', path: '/mas/eventos', emoji: '🎉', sub: 'Gastos compartidos (ocasional)' },
-  { id: 'config', label: 'Configuración', path: '/mas/configuracion', emoji: '⚙️', sub: 'Cuentas, alertas, metas, usuarios y dólar' },
+  { id: 'config', label: 'Configuración', path: '/mas/configuracion', emoji: '⚙️', sub: 'Alertas, metas, usuarios y dólar' },
 ];
 
 export const VENCIMIENTOS_PATH = '/vencimientos';

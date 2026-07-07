@@ -12,7 +12,6 @@ import { UsuariosScreen } from '@/features/usuarios/UsuariosScreen';
 const ACCENT = '#3B82F6';
 
 const GESTION = [
-  { path: '/mas/cajas', emoji: '💼', label: 'Cuentas', sub: 'Cuentas y billeteras de cada uno' },
   { path: '/mas/alertas', emoji: '🔔', label: 'Alertas y metas', sub: 'Límites de gasto por categoría' },
 ];
 
@@ -55,7 +54,7 @@ export function ConfiguracionScreen() {
       <div className="px-[18px] lg:px-0">
         {/* Gestión: cuentas, alertas y metas */}
         <section className="mb-6">
-          <SectionHeader title="Gestión" subtitle="cuentas, alertas y metas" />
+          <SectionHeader title="Gestión" subtitle="alertas y metas" />
           <div className="overflow-hidden rounded-[18px] border border-line bg-surface">
             {GESTION.map((g, i) => (
               <button

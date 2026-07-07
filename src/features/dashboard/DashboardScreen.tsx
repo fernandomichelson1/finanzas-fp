@@ -10,7 +10,7 @@ import {
   computeVencimientos,
   gastosDelMes,
 } from '@/lib/selectors';
-import { MES_ACTUAL, TODAY, addMonths, daysUntil, fechaCorta, mesLabel } from '@/lib/date';
+import { MES_ACTUAL, TODAY, addMonths, daysUntil, fechaCorta, mesLabel, saludoDelDia } from '@/lib/date';
 import { fmtARSCompact, fmtMonto, fmtUSD } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
 import { Avatar } from '@/components/ui/Avatar';
@@ -127,7 +127,7 @@ export function DashboardScreen() {
           <Avatar userId={currentUser} size={42} />
         </button>
         <div className="flex-1">
-          <div className="text-[13px] text-muted">Buen día,</div>
+          <div className="text-[13px] text-muted">{saludoDelDia()},</div>
           <div className="mt-0.5 text-[17px] font-semibold text-text">
             {u?.nombre} <span className="text-sm font-normal capitalize text-muted">· {u?.rol}</span>
           </div>

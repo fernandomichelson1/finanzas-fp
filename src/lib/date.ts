@@ -41,6 +41,25 @@ export function niceDate(iso: ISODate): string {
   return `${d} ${MESES_CORTOS[m - 1]}`;
 }
 
+/**
+ * Saludo según la hora de Argentina (America/Argentina/Buenos_Aires):
+ * 'Buen día' 6:00–13:00 · 'Buenas tardes' 13:01–19:00 · 'Buenas noches' 19:01–5:59.
+ */
+export function saludoDelDia(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  }).formatToParts(now);
+  const h = Number(parts.find((p) => p.type === 'hour')?.value ?? '0') % 24;
+  const m = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+  const min = h * 60 + m;
+  if (min >= 360 && min <= 780) return 'Buen día'; // 6:00 – 13:00
+  if (min >= 781 && min <= 1140) return 'Buenas tardes'; // 13:01 – 19:00
+  return 'Buenas noches'; // 19:01 – 5:59
+}
+
 /** '2026-05' → 'Mayo 2026'. */
 export function mesLabel(mes: Mes): string {
   const [y, m] = mes.split('-').map(Number);
