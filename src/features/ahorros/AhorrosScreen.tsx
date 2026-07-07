@@ -252,7 +252,7 @@ export function AhorrosScreen() {
             <div className="mb-3.5 flex gap-1.5">
               {(['compartido', 'fer', 'pao'] as ObjetivoOwner[]).map((id) => {
                 const active = f.owner === id;
-                const col = id === 'compartido' ? '#3B82F6' : (users[id]?.color ?? '#3B82F6');
+                const col = id === 'compartido' ? '#8B5CF6' : (users[id]?.color ?? '#3B82F6');
                 const label = id === 'compartido' ? 'Compartido' : (users[id]?.nombre ?? id);
                 return (
                   <button key={id} onClick={() => setF({ ...f, owner: id })} className="flex-1 rounded-[10px] py-2 text-[12.5px] font-semibold" style={{ background: active ? alpha(col, 0.15) : 'var(--surface)', color: active ? col : 'var(--text-muted)', border: `1px solid ${active ? col : 'var(--border)'}` }}>{label}</button>

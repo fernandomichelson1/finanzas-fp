@@ -17,7 +17,7 @@ function OwnerPicker({ value, onChange }: { value: Owner; onChange: (o: Owner) =
     <div className="flex gap-1.5">
       {(['compartido', 'fer', 'pao'] as Owner[]).map((id) => {
         const active = value === id;
-        const col = id === 'compartido' ? '#3B82F6' : users[id]?.color ?? '#3B82F6';
+        const col = id === 'compartido' ? '#8B5CF6' : users[id]?.color ?? '#3B82F6';
         const label = id === 'compartido' ? 'Compartido' : users[id]?.nombre ?? id;
         return (
           <button
