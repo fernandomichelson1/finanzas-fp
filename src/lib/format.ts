@@ -17,18 +17,12 @@ export function fmtARSCompact(n: number): string {
   return fmtARS(n);
 }
 
-/** Solo el número con separadores, sin '$'. 1850000 → '1.850.000'. */
+/**
+ * Solo el número con separadores, SIEMPRE con 2 decimales (coma), sin '$'.
+ * 1850000 → '1.850.000,00'; 2209144.17 → '2.209.144,17'. No redondea a entero.
+ */
 export function fmtMonto(n: number): string {
-  return Math.round(n).toLocaleString('es-AR');
-}
-
-/** Como fmtMonto pero muestra los decimales (con coma) cuando el número los tiene. */
-export function fmtMontoDec(n: number): string {
-  const tieneDec = Math.abs(n % 1) > 0.0001;
-  return n.toLocaleString('es-AR', {
-    minimumFractionDigits: tieneDec ? 2 : 0,
-    maximumFractionDigits: 2,
-  });
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // ── Entrada de montos en formato argentino (miles con '.', decimal con ',') ──
