@@ -22,6 +22,15 @@ export function fmtMonto(n: number): string {
   return Math.round(n).toLocaleString('es-AR');
 }
 
+/** Como fmtMonto pero muestra los decimales (con coma) cuando el número los tiene. */
+export function fmtMontoDec(n: number): string {
+  const tieneDec = Math.abs(n % 1) > 0.0001;
+  return n.toLocaleString('es-AR', {
+    minimumFractionDigits: tieneDec ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+}
+
 // ── Entrada de montos en formato argentino (miles con '.', decimal con ',') ──
 
 /**

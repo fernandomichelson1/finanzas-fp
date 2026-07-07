@@ -4,7 +4,7 @@ import type { Caja, CajaTipo, Movimiento, UserId } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { CAJA_TIPOS } from '@/data';
 import { saldosDeCajas } from '@/lib/selectors';
-import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
+import { fmtMontoDec, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
 import { Avatar } from '@/components/ui/Avatar';
 import { CatIcon } from '@/components/ui/CatIcon';
@@ -80,7 +80,7 @@ export function CajasScreen() {
           <div className="pointer-events-none absolute -right-10 -top-12 h-56 w-56" style={{ background: 'radial-gradient(circle, rgba(22,163,74,0.32) 0%, transparent 65%)' }} />
           <div className="relative">
             <div className="text-[11px] uppercase tracking-[1.2px] text-white/55">Patrimonio total</div>
-            <div className="mt-1 text-[34px] font-bold tabular-nums tracking-[-1px] text-white">${fmtMonto(patrimonio)}</div>
+            <div className="mt-1 text-[34px] font-bold tabular-nums tracking-[-1px] text-white">${fmtMontoDec(patrimonio)}</div>
             <div className="mt-3.5 flex gap-4 border-t border-white/[0.08] pt-3">
               {[currentUser, otherUser].map((uid) => (
                 <div key={uid} className="flex-1">
@@ -88,7 +88,7 @@ export function CajasScreen() {
                     <Avatar userId={uid} size={18} />
                     <span className="text-[11px] text-white/60">{users[uid]?.nombre}</span>
                   </div>
-                  <div className="text-base font-semibold tabular-nums text-white">${fmtMonto(totals[uid] ?? 0)}</div>
+                  <div className="text-base font-semibold tabular-nums text-white">${fmtMontoDec(totals[uid] ?? 0)}</div>
                 </div>
               ))}
             </div>
@@ -137,7 +137,7 @@ export function CajaCard({ caja, saldo, onClick }: { caja: Caja; saldo: number; 
           <div className="mt-0.5 truncate text-[10.5px] uppercase tracking-wide text-white/70">{tipoLabel(caja.tipo)}</div>
         </div>
         <div className="text-right">
-          <div className="whitespace-nowrap text-[17px] font-bold tabular-nums tracking-[-0.3px]">${fmtMonto(saldo)}</div>
+          <div className="whitespace-nowrap text-[17px] font-bold tabular-nums tracking-[-0.3px]">${fmtMontoDec(saldo)}</div>
           <div className="mt-0.5 text-[10px] text-white/60">Saldo</div>
         </div>
       </div>
@@ -175,19 +175,19 @@ function CajaDetalle({ caja, saldo, ownerName, movimientos, onBack, onEdit, onAr
               </div>
             </div>
             <div className="text-[11px] uppercase tracking-[1.2px] text-white/65">Saldo actual</div>
-            <div className="mt-1 text-[32px] font-bold tabular-nums tracking-[-0.8px]">${fmtMonto(saldo)}</div>
-            <div className="mt-1 text-[11px] tabular-nums text-white/60">Saldo inicial: ${fmtMonto(caja.saldo_inicial)}</div>
+            <div className="mt-1 text-[32px] font-bold tabular-nums tracking-[-0.8px]">${fmtMontoDec(saldo)}</div>
+            <div className="mt-1 text-[11px] tabular-nums text-white/60">Saldo inicial: ${fmtMontoDec(caja.saldo_inicial)}</div>
           </div>
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-2">
           <div className="rounded-[14px] border border-line bg-surface px-3.5 py-3">
             <div className="text-[10.5px] uppercase tracking-wide text-muted">Entró</div>
-            <div className="mt-1 text-[17px] font-bold tabular-nums text-income">+${fmtMonto(entro)}</div>
+            <div className="mt-1 text-[17px] font-bold tabular-nums text-income">+${fmtMontoDec(entro)}</div>
           </div>
           <div className="rounded-[14px] border border-line bg-surface px-3.5 py-3">
             <div className="text-[10.5px] uppercase tracking-wide text-muted">Salió</div>
-            <div className="mt-1 text-[17px] font-bold tabular-nums text-expense">−${fmtMonto(salio)}</div>
+            <div className="mt-1 text-[17px] font-bold tabular-nums text-expense">−${fmtMontoDec(salio)}</div>
           </div>
         </div>
 
@@ -277,6 +277,11 @@ function CajaForm({ initial, owner, onBack, onSubmit }: { initial?: Caja; owner:
           <CajaCard caja={{ id: 'preview', nombre: nombre || 'Nombre de la cuenta', color, icono, logo, tipo, owner: dueno, saldo_inicial: 0 }} saldo={parseMoney(saldo)} />
         </div>
 
+        <Field label="Saldo actual">
+          <input inputMode="decimal" value={saldo} onChange={(e) => setSaldo(formatMiles(e.target.value))} placeholder="0" className="w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[17px] font-semibold tabular-nums text-text outline-none" />
+          <div className="mt-1.5 text-[11px] text-muted">La plata que tenés hoy en esta cuenta. Se usa como saldo inicial (después suma/resta tus movimientos).</div>
+        </Field>
+
         {!editing && (
           <Field label="Elegí una conocida (o creala abajo)">
             <div className="hide-scroll flex gap-2 overflow-x-auto pb-1">
@@ -306,23 +311,6 @@ function CajaForm({ initial, owner, onBack, onSubmit }: { initial?: Caja; owner:
           </div>
         </Field>
 
-        <Field label="Tipo">
-          <div className="grid grid-cols-2 gap-2">
-            {CAJA_TIPOS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTipo(t.id)}
-                className="rounded-xl p-3 text-left"
-                style={{ background: tipo === t.id ? alpha(color, 0.12) : 'var(--surface)', border: `1px solid ${tipo === t.id ? color : 'var(--border)'}` }}
-              >
-                <div className="mb-1 text-lg">{t.icon}</div>
-                <div className="text-[13px] font-semibold text-text">{t.label}</div>
-                <div className="mt-0.5 text-[10.5px] text-muted">{t.sub}</div>
-              </button>
-            ))}
-          </div>
-        </Field>
-
         <Field label="Nombre">
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="ej. Brubank, Santander..." className="w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[15px] text-text outline-none" />
         </Field>
@@ -345,6 +333,23 @@ function CajaForm({ initial, owner, onBack, onSubmit }: { initial?: Caja; owner:
           {logo?.startsWith('data:') && <div className="mt-1.5 text-[11px] text-savings">Logo subido ✓</div>}
         </Field>
 
+        <Field label="Tipo">
+          <div className="grid grid-cols-2 gap-2">
+            {CAJA_TIPOS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTipo(t.id)}
+                className="rounded-xl p-3 text-left"
+                style={{ background: tipo === t.id ? alpha(color, 0.12) : 'var(--surface)', border: `1px solid ${tipo === t.id ? color : 'var(--border)'}` }}
+              >
+                <div className="mb-1 text-lg">{t.icon}</div>
+                <div className="text-[13px] font-semibold text-text">{t.label}</div>
+                <div className="mt-0.5 text-[10.5px] text-muted">{t.sub}</div>
+              </button>
+            ))}
+          </div>
+        </Field>
+
         <Field label="Color">
           <div className="grid grid-cols-6 gap-2">
             {PALETTE.map((c) => (
@@ -362,11 +367,6 @@ function CajaForm({ initial, owner, onBack, onSubmit }: { initial?: Caja; owner:
             </div>
           </Field>
         )}
-
-        <Field label="Saldo actual">
-          <input inputMode="decimal" value={saldo} onChange={(e) => setSaldo(formatMiles(e.target.value))} placeholder="0" className="w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[15px] tabular-nums text-text outline-none" />
-          <div className="mt-1.5 text-[11px] text-muted">La plata que tenés hoy en esta cuenta. Se usa como saldo inicial (después suma/resta tus movimientos).</div>
-        </Field>
 
         <div className="py-4">
           <button
