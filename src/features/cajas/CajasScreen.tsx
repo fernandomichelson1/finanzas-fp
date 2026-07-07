@@ -4,7 +4,7 @@ import type { Caja, CajaTipo, Movimiento, UserId } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { CAJA_TIPOS } from '@/data';
 import { saldosDeCajas } from '@/lib/selectors';
-import { fmtMonto } from '@/lib/format';
+import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
 import { Avatar } from '@/components/ui/Avatar';
 import { CatIcon } from '@/components/ui/CatIcon';
@@ -255,7 +255,7 @@ function CajaForm({ initial, owner, onBack, onSubmit }: { initial?: Caja; owner:
   const [color, setColor] = useState(initial?.color ?? '#0EA5E9');
   const [icono, setIcono] = useState(initial?.icono ?? '💳');
   const [logo, setLogo] = useState<string | undefined>(initial?.logo);
-  const [saldo, setSaldo] = useState(initial ? String(initial.saldo_inicial) : '');
+  const [saldo, setSaldo] = useState(initial ? moneyToInput(initial.saldo_inicial) : '');
   const [dueno, setDueno] = useState<UserId>(initial?.owner ?? owner);
   const valid = nombre.trim().length > 0;
 
@@ -274,7 +274,7 @@ function CajaForm({ initial, owner, onBack, onSubmit }: { initial?: Caja; owner:
       <ScreenHeader title={editing ? 'Editar cuenta' : 'Nueva cuenta'} size="md" onBack={onBack} />
       <div className="px-[18px] lg:px-0">
         <div className="mb-4">
-          <CajaCard caja={{ id: 'preview', nombre: nombre || 'Nombre de la cuenta', color, icono, logo, tipo, owner: dueno, saldo_inicial: 0 }} saldo={parseInt(saldo || '0', 10)} />
+          <CajaCard caja={{ id: 'preview', nombre: nombre || 'Nombre de la cuenta', color, icono, logo, tipo, owner: dueno, saldo_inicial: 0 }} saldo={parseMoney(saldo)} />
         </div>
 
         {!editing && (
@@ -364,13 +364,13 @@ function CajaForm({ initial, owner, onBack, onSubmit }: { initial?: Caja; owner:
         )}
 
         <Field label="Saldo actual">
-          <input type="number" value={saldo} onChange={(e) => setSaldo(e.target.value)} placeholder="0" className="w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[15px] tabular-nums text-text outline-none" />
+          <input inputMode="decimal" value={saldo} onChange={(e) => setSaldo(formatMiles(e.target.value))} placeholder="0" className="w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[15px] tabular-nums text-text outline-none" />
           <div className="mt-1.5 text-[11px] text-muted">La plata que tenés hoy en esta cuenta. Se usa como saldo inicial (después suma/resta tus movimientos).</div>
         </Field>
 
         <div className="py-4">
           <button
-            onClick={() => onSubmit({ nombre: nombre.trim(), tipo, color, icono, logo, saldo_inicial: parseInt(saldo || '0', 10), owner: dueno })}
+            onClick={() => onSubmit({ nombre: nombre.trim(), tipo, color, icono, logo, saldo_inicial: parseMoney(saldo), owner: dueno })}
             disabled={!valid}
             className="w-full rounded-[14px] py-3.5 text-[15px] font-semibold"
             style={{ background: valid ? `linear-gradient(180deg, ${color} 0%, ${shade(color, -0.15)} 100%)` : 'var(--surface)', color: valid ? '#fff' : 'var(--text-muted)', boxShadow: valid ? `0 8px 20px ${alpha(color, 0.33)}` : 'none' }}

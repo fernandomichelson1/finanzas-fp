@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { VencimientoRow } from '@/types/domain';
 import { daysUntil } from '@/lib/date';
+import { formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
 import { Icon } from '@/components/ui/icons';
@@ -53,19 +54,18 @@ function Row({
   onMenu: TableProps['onMenu'];
 }) {
   const cat = useCatById(v.cat) ?? FALLBACK;
-  const [monto, setMonto] = useState(String(v.monto));
+  const [monto, setMonto] = useState(moneyToInput(v.monto));
   const [dia, setDia] = useState(String(Number(v.vence.split('-')[2])));
 
   // Resincroniza si cambia desde afuera (otro pago, sync de Pao, etc.)
   useEffect(() => {
-    setMonto(String(v.monto));
+    setMonto(moneyToInput(v.monto));
     setDia(String(Number(v.vence.split('-')[2])));
   }, [v.monto, v.vence]);
 
   const commit = () => {
-    const n = Number(String(monto).replace(/[^\d.]/g, ''));
     const d = Math.max(1, Math.min(31, Number(dia) || 1));
-    onCommit(v.gfId, v.mes, isNaN(n) ? 0 : n, d);
+    onCommit(v.gfId, v.mes, parseMoney(monto), d);
   };
 
   const dr = daysUntil(v.vence);
@@ -115,10 +115,10 @@ function Row({
         <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted">$</span>
         <input
           value={monto}
-          inputMode="numeric"
+          inputMode="decimal"
           disabled={v.pagado}
           title={v.prefilled && !v.pagado ? 'Monto del mes anterior — ajustalo con la factura' : undefined}
-          onChange={(e) => setMonto(e.target.value.replace(/[^\d.]/g, ''))}
+          onChange={(e) => setMonto(formatMiles(e.target.value))}
           onBlur={commit}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           className="w-full rounded-lg border bg-surface-2 py-1.5 pl-6 pr-2 text-right text-[13.5px] font-semibold tabular-nums outline-none focus:border-accent disabled:opacity-60"

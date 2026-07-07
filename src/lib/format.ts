@@ -22,6 +22,33 @@ export function fmtMonto(n: number): string {
   return Math.round(n).toLocaleString('es-AR');
 }
 
+// ── Entrada de montos en formato argentino (miles con '.', decimal con ',') ──
+
+/**
+ * Formatea EN VIVO lo que se tipea a formato AR: puntos de miles automáticos,
+ * coma para el decimal. '1000' → '1.000'; '1000,5' → '1.000,5'; ',5' → '0,5'.
+ */
+export function formatMiles(raw: string): string {
+  const s = String(raw).replace(/[^\d,]/g, '');
+  const i = s.indexOf(',');
+  const intp = (i === -1 ? s : s.slice(0, i)).replace(/^0+(?=\d)/, '');
+  const dec = i === -1 ? null : s.slice(i + 1).replace(/[^\d]/g, '').slice(0, 2);
+  const intf = intp.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return dec === null ? intf : `${intf || '0'},${dec}`;
+}
+
+/** Texto AR de un input ('1.234,56') → número (1234.56). */
+export function parseMoney(text: string): number {
+  const n = Number(String(text).replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+
+/** Número → texto de input AR. 914100 → '914.100'; 179623.31 → '179.623,31'; 0 → ''. */
+export function moneyToInput(n: number | null | undefined): string {
+  if (!n) return '';
+  return formatMiles(String(n).replace('.', ','));
+}
+
 /** Convierte ARS a USD con la cotización dada. 1.400.000 @ 1400 → 'US$ 1.000'. */
 export function fmtUSD(ars: number, rate: number): string {
   if (!rate || rate <= 0) return 'US$ —';

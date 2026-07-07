@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { GastoFijo, VencimientoRow as VRow } from '@/types/domain';
-import { fmtMonto } from '@/lib/format';
+import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { fechaCorta, daysUntil } from '@/lib/date';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
@@ -164,13 +164,12 @@ function EditRow({
   onCancel: () => void;
   onSave: (payload: { monto: number; fecha: string }) => void;
 }) {
-  const [monto, setMonto] = useState(String(v.monto));
+  const [monto, setMonto] = useState(moneyToInput(v.monto));
   const [dia, setDia] = useState(String(Number(v.vence.split('-')[2])));
 
   const submit = () => {
-    const n = Number(String(monto).replace(/[^\d.]/g, ''));
     const d = Math.max(1, Math.min(31, Number(dia) || 1));
-    onSave({ monto: isNaN(n) ? 0 : n, fecha: `${v.mes}-${String(d).padStart(2, '0')}` });
+    onSave({ monto: parseMoney(monto), fecha: `${v.mes}-${String(d).padStart(2, '0')}` });
   };
 
   return (
@@ -189,7 +188,7 @@ function EditRow({
             <input
               inputMode="decimal"
               value={monto}
-              onChange={(e) => setMonto(e.target.value)}
+              onChange={(e) => setMonto(formatMiles(e.target.value))}
               className="w-full rounded-[10px] border border-line bg-surface-2 py-2.5 pl-[22px] pr-3 text-[14.5px] font-semibold tabular-nums text-text outline-none"
             />
           </div>

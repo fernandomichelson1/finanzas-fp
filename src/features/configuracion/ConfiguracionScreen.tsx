@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { fetchBlueVenta } from '@/services/dolar';
-import { fmtMonto } from '@/lib/format';
+import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SectionHeader } from '@/components/ui/SectionHeader';
@@ -32,15 +32,15 @@ export function ConfiguracionScreen() {
   const setUsdRate = useFinanzasStore((s) => s.setUsdRate);
   const setUsdBlue = useFinanzasStore((s) => s.setUsdBlue);
   const { mode, setMode } = useTheme();
-  const [rate, setRate] = useState(String(usdRate));
+  const [rate, setRate] = useState(moneyToInput(usdRate));
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => setRate(String(usdRate)), [usdRate]);
+  useEffect(() => setRate(moneyToInput(usdRate)), [usdRate]);
 
   const commitRate = () => {
-    const n = Number(String(rate).replace(/[^\d.]/g, ''));
+    const n = parseMoney(rate);
     if (n > 0) setUsdRate(n);
-    else setRate(String(usdRate));
+    else setRate(moneyToInput(usdRate));
   };
   const actualizarBlue = async () => {
     setBusy(true);
@@ -127,8 +127,8 @@ export function ConfiguracionScreen() {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">$</span>
                 <input
                   value={rate}
-                  inputMode="numeric"
-                  onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
+                  inputMode="decimal"
+                  onChange={(e) => setRate(formatMiles(e.target.value))}
                   onBlur={commitRate}
                   onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
                   className="w-full rounded-xl border border-line bg-surface-2 py-2.5 pl-7 pr-3 text-[15px] font-semibold tabular-nums text-text outline-none focus:border-accent"

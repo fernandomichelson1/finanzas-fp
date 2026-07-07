@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Owner, VencimientoRow } from '@/types/domain';
+import { formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
 import { Icon } from '@/components/ui/icons';
@@ -46,15 +47,12 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
   const updateInstancia = useFinanzasStore((s) => s.updateInstancia);
   const setGastoFijoOwnerFrom = useFinanzasStore((s) => s.setGastoFijoOwnerFrom);
   const [sel, setSel] = useState<string | null>(cajas[0]?.id ?? null);
-  const [monto, setMonto] = useState(String(venc.monto));
+  const [monto, setMonto] = useState(moneyToInput(venc.monto));
   const [dia, setDia] = useState(String(Number(venc.vence.split('-')[2])));
   const [owner, setOwner] = useState<Owner>(venc.owner);
   const c = useCatById(venc.cat) ?? FALLBACK;
 
-  const parseMonto = () => {
-    const n = Number(String(monto).replace(/[^\d.]/g, ''));
-    return isNaN(n) ? 0 : n;
-  };
+  const parseMonto = () => parseMoney(monto);
   const fechaISO = () => `${venc.mes}-${String(Math.max(1, Math.min(31, Number(dia) || 1))).padStart(2, '0')}`;
   const applyOwner = (o: Owner) => {
     setOwner(o);
@@ -89,7 +87,7 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Monto</div>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[15px] text-muted">$</span>
-              <input inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d.]/g, ''))} className="w-full rounded-xl border border-line bg-surface py-3 pl-7 pr-3 text-[17px] font-semibold tabular-nums text-text outline-none focus:border-accent" />
+              <input inputMode="decimal" value={monto} onChange={(e) => setMonto(formatMiles(e.target.value))} className="w-full rounded-xl border border-line bg-surface py-3 pl-7 pr-3 text-[17px] font-semibold tabular-nums text-text outline-none focus:border-accent" />
             </div>
           </label>
           <label className="block">
@@ -162,8 +160,7 @@ export function GastoFijoForm({ onClose, onSubmit }: { onClose: () => void; onSu
   const canSubmit = nombre.trim().length > 1 && Number(dia) >= 1 && Number(dia) <= 31;
   const submit = () => {
     if (!canSubmit) return;
-    const n = Number(String(montoSug).replace(/[^\d.]/g, ''));
-    onSubmit({ nombre: nombre.trim(), cat, diaVenc: Math.max(1, Math.min(31, Number(dia))), montoSugerido: isNaN(n) ? 0 : n, owner });
+    onSubmit({ nombre: nombre.trim(), cat, diaVenc: Math.max(1, Math.min(31, Number(dia))), montoSugerido: parseMoney(montoSug), owner });
   };
 
   return (
@@ -217,7 +214,7 @@ export function GastoFijoForm({ onClose, onSubmit }: { onClose: () => void; onSu
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Monto sugerido (opcional)</div>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-muted">$</span>
-              <input inputMode="decimal" placeholder="0" value={montoSug} onChange={(e) => setMontoSug(e.target.value)} className="w-full rounded-xl border border-line bg-surface py-3 pl-7 pr-3.5 text-[17px] font-semibold tabular-nums text-text outline-none" />
+              <input inputMode="decimal" placeholder="0" value={montoSug} onChange={(e) => setMontoSug(formatMiles(e.target.value))} className="w-full rounded-xl border border-line bg-surface py-3 pl-7 pr-3.5 text-[17px] font-semibold tabular-nums text-text outline-none" />
             </div>
           </label>
         </div>

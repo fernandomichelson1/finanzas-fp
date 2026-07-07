@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Caja, MovimientoTipo } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
-import { fmtMonto, tipoSign } from '@/lib/format';
+import { formatMiles, parseMoney, tipoSign } from '@/lib/format';
 import { TODAY } from '@/lib/date';
 import { alpha, shade } from '@/lib/color';
 import { uid } from '@/lib/id';
@@ -45,7 +45,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   }, []);
 
   const userCajas = allCajas.filter((c) => c.owner === currentUser);
-  const montoNum = parseInt(monto || '0', 10);
+  const montoNum = parseMoney(monto);
   const needsOrigen = tipo === 'transferencia' || tipo === 'ahorro';
   const needsConcepto = tipo === 'ingreso' || tipo === 'gasto' || tipo === 'ahorro';
 
@@ -192,17 +192,23 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
             <div className="mb-2 text-center">
               <div className="mb-1.5 text-[13px] uppercase tracking-wider text-muted">Monto</div>
               <div className="text-[46px] font-bold tabular-nums tracking-[-1.4px]" style={{ color: META[tipo].color, textShadow: `0 0 24px ${alpha(META[tipo].color, 0.2)}` }}>
-                {tipoSign(tipo)}${montoNum > 0 ? fmtMonto(montoNum) : '0'}
+                {tipoSign(tipo)}${formatMiles(monto) || '0'}
               </div>
               <div className="mx-auto mt-1.5 h-0.5 w-14 rounded-sm" style={{ background: alpha(META[tipo].color, 0.33) }} />
             </div>
             <div className="mt-6 grid grid-cols-3 gap-2.5">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', '⌫'].map((k) => (
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'].map((k) => (
                 <button
                   key={k}
                   onClick={() => {
                     if (k === '⌫') setMonto((m) => m.slice(0, -1));
-                    else setMonto((m) => (m + k).replace(/^0+/, '').slice(0, 10));
+                    else if (k === ',') setMonto((m) => (m.includes(',') ? m : (m || '0') + ','));
+                    else
+                      setMonto((m) => {
+                        const ci = m.indexOf(',');
+                        if (ci !== -1 && m.length - ci - 1 >= 2) return m; // ya tiene 2 decimales
+                        return (m + k).replace(/^0+(?=\d)/, '').slice(0, 14);
+                      });
                   }}
                   className="rounded-[14px] border border-line bg-surface-2 py-[18px] text-[22px] font-medium tabular-nums text-text active:bg-surface"
                 >
@@ -220,7 +226,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
                 {META[tipo].label}
               </div>
               <div className="flex-1 text-right text-lg font-semibold tabular-nums" style={{ color: META[tipo].color }}>
-                {tipoSign(tipo)}${fmtMonto(montoNum)}
+                {tipoSign(tipo)}${formatMiles(monto) || '0'}
               </div>
             </div>
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ObjetivoOwner } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { MES_ACTUAL, addMonths, mesLabelCorto } from '@/lib/date';
-import { fmtARSCompact, fmtMonto } from '@/lib/format';
+import { fmtARSCompact, fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
 import { OwnerBadge } from '@/components/ui/OwnerBadge';
 import { ProgressRing, Sparkline } from '@/components/charts';
@@ -61,7 +61,7 @@ export function AhorrosScreen() {
   const hayAhorro = totalAhorrado > 0;
 
   const submitAporte = () => {
-    const m = parseInt(aporteMonto || '0', 10);
+    const m = parseMoney(aporteMonto);
     if (m > 0 && aporteFor) {
       logAporte(aporteFor, m);
       setAporteFor(null);
@@ -74,13 +74,13 @@ export function AhorrosScreen() {
     const o = objetivos.find((x) => x.id === id);
     if (!o) return;
     setEditId(id);
-    setF({ name: o.nombre, meta: String(o.meta), fecha: o.fecha_limite ?? '', color: o.color, icono: o.icono, owner: o.owner ?? 'compartido' });
+    setF({ name: o.nombre, meta: moneyToInput(o.meta), fecha: o.fecha_limite ?? '', color: o.color, icono: o.icono, owner: o.owner ?? 'compartido' });
     setFormOpen(true);
   };
-  const canSubmit = f.name.trim() !== '' && !!parseInt(f.meta, 10);
+  const canSubmit = f.name.trim() !== '' && parseMoney(f.meta) > 0;
   const submitForm = () => {
     if (!canSubmit) return;
-    const payload = { nombre: f.name.trim(), meta: parseInt(f.meta, 10), color: f.color, icono: f.icono, fecha_limite: f.fecha || null, owner: f.owner };
+    const payload = { nombre: f.name.trim(), meta: parseMoney(f.meta), color: f.color, icono: f.icono, fecha_limite: f.fecha || null, owner: f.owner };
     if (editId) updateObjetivo(editId, payload);
     else createObjetivo({ ...payload, actual: 0, creado_por: currentUser, estado: 'activo' });
     setFormOpen(false);
@@ -161,7 +161,7 @@ export function AhorrosScreen() {
                   </div>
                   {open ? (
                     <div className="flex gap-1.5">
-                      <input type="number" value={aporteMonto} onChange={(e) => setAporteMonto(e.target.value)} placeholder="$ monto" autoFocus className="flex-1 rounded-[10px] border border-line bg-surface-2 px-3 py-2.5 text-sm tabular-nums text-text outline-none" />
+                      <input inputMode="decimal" value={aporteMonto} onChange={(e) => setAporteMonto(formatMiles(e.target.value))} placeholder="$ monto" autoFocus className="flex-1 rounded-[10px] border border-line bg-surface-2 px-3 py-2.5 text-sm tabular-nums text-text outline-none" />
                       <button onClick={submitAporte} className="rounded-[10px] px-3.5 py-2.5 text-[13px] font-semibold text-white" style={{ background: o.color }}>Aportar</button>
                       <button onClick={() => { setAporteFor(null); setAporteMonto(''); }} className="rounded-[10px] border border-line bg-surface-2 px-3 py-2.5 text-muted">×</button>
                     </div>
@@ -231,12 +231,12 @@ export function AhorrosScreen() {
               <div className="flex h-12 w-12 items-center justify-center rounded-[14px] text-xl text-white" style={{ background: `linear-gradient(135deg, ${f.color} 0%, ${shade(f.color, -0.18)} 100%)` }}>{f.icono}</div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-text">{f.name || (editId ? 'Editar objetivo' : 'Nuevo objetivo')}</div>
-                <div className="text-[11.5px] text-muted">{f.meta ? `Meta: $${fmtMonto(parseInt(f.meta, 10))}` : 'Sin meta definida'}</div>
+                <div className="text-[11.5px] text-muted">{f.meta ? `Meta: $${fmtMonto(parseMoney(f.meta))}` : 'Sin meta definida'}</div>
               </div>
               <button onClick={() => { setFormOpen(false); setEditId(null); }} aria-label="Cerrar" className="flex h-9 w-9 items-center justify-center rounded-xl text-text hover:bg-surface-2"><Icon.close size={18} /></button>
             </div>
             <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nombre (ej. Viaje, Auto...)" autoFocus className="mb-2.5 w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-sm text-text outline-none" />
-            <input type="number" value={f.meta} onChange={(e) => setF({ ...f, meta: e.target.value })} placeholder="$ meta" className="mb-2.5 w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-sm tabular-nums text-text outline-none" />
+            <input inputMode="decimal" value={f.meta} onChange={(e) => setF({ ...f, meta: formatMiles(e.target.value) })} placeholder="$ meta" className="mb-2.5 w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-sm tabular-nums text-text outline-none" />
             <input type="date" value={f.fecha} onChange={(e) => setF({ ...f, fecha: e.target.value })} className="mb-2.5 w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-sm text-text outline-none" />
             <div className="mb-2.5 flex flex-wrap gap-2">
               {COLORS.map((c) => (

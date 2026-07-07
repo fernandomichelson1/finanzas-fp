@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { gastosDelMes } from '@/lib/selectors';
-import { fmtMonto } from '@/lib/format';
+import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -52,7 +52,7 @@ export function AlertasScreen() {
   }, [metas, uso]);
 
   const submitMeta = (cat: string) => {
-    const v = parseInt(input || '0', 10);
+    const v = parseMoney(input);
     if (v > 0) {
       setMeta(cat, v);
       setEditing(null);
@@ -109,13 +109,13 @@ export function AlertasScreen() {
                     <div className="flex-1 text-sm font-medium text-text">{c.nombre}</div>
                     {isEd ? (
                       <div className="flex gap-1">
-                        <input type="number" value={input} onChange={(e) => setInput(e.target.value)} placeholder="$" autoFocus className="w-[90px] rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-xs tabular-nums text-text outline-none" />
+                        <input inputMode="decimal" value={input} onChange={(e) => setInput(formatMiles(e.target.value))} placeholder="$" autoFocus className="w-[90px] rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-xs tabular-nums text-text outline-none" />
                         <button onClick={() => submitMeta(c.id)} className="rounded-lg bg-[#2563EB] px-2.5 py-1.5 text-[11px] text-white">OK</button>
                         <button onClick={() => { setEditing(null); setInput(''); }} className="rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-[11px] text-muted">×</button>
                       </div>
                     ) : isAdmin ? (
                       <div className="flex items-center gap-1.5">
-                        <button onClick={() => { setEditing(c.id); setInput(lim?.toString() ?? ''); }} className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold tabular-nums" style={{ background: lim ? alpha(barColor, 0.13) : 'var(--surface-2)', color: lim ? barColor : 'var(--text-muted)', border: lim ? `1px solid ${alpha(barColor, 0.33)}` : '1px solid var(--border)' }}>
+                        <button onClick={() => { setEditing(c.id); setInput(moneyToInput(lim)); }} className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold tabular-nums" style={{ background: lim ? alpha(barColor, 0.13) : 'var(--surface-2)', color: lim ? barColor : 'var(--text-muted)', border: lim ? `1px solid ${alpha(barColor, 0.33)}` : '1px solid var(--border)' }}>
                           {lim ? `$${fmtMonto(lim)}` : '+ Meta'}
                         </button>
                         {lim != null && (
