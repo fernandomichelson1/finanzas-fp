@@ -10,6 +10,7 @@ import type {
   CategoriaTipo,
   CategoriaUso,
   Concepto,
+  GastoFijo,
   Movimiento,
   Objetivo,
   Owner,
@@ -86,6 +87,7 @@ interface Actions {
     montoSugerido: number;
     owner: Owner;
   }) => void;
+  updateGastoFijo: (id: string, payload: Partial<GastoFijo>) => void;
   setGastoFijoOwnerFrom: (id: string, desde: string, owner: Owner) => void;
   updateInstancia: (gfId: string, mes: string, payload: Partial<VencimientoInstancia>) => void;
   pagarVencimiento: (venc: VencimientoRow, cajaId: string) => void;
@@ -241,6 +243,11 @@ export const useFinanzasStore = create<FinanzasStore>()(
             ...s.gastosFijos,
             { id: uid('gf'), nombre, cat, diaVenc, montoSugerido, activo: true, owner },
           ],
+        })),
+
+      updateGastoFijo: (id, payload) =>
+        set((s) => ({
+          gastosFijos: s.gastosFijos.map((gf) => (gf.id === id ? { ...gf, ...payload } : gf)),
         })),
 
       setGastoFijoOwnerFrom: (id, desde, owner) =>

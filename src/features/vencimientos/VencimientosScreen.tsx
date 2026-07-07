@@ -28,6 +28,7 @@ export function VencimientosScreen() {
   const pauseGastoFijo = useFinanzasStore((s) => s.pauseGastoFijo);
   const deleteGastoFijo = useFinanzasStore((s) => s.deleteGastoFijo);
   const setGastoFijoOwnerFrom = useFinanzasStore((s) => s.setGastoFijoOwnerFrom);
+  const updateGastoFijo = useFinanzasStore((s) => s.updateGastoFijo);
   const users = useFinanzasStore((s) => s.users);
 
   const [filter, setFilter] = useState<Filter>('todos');
@@ -282,6 +283,7 @@ export function VencimientosScreen() {
           venc={menuFor}
           mesLabel={mesLabel(activeMonth)}
           onClose={() => setMenuFor(null)}
+          onRename={(nombre) => updateGastoFijo(menuFor.gfId, { nombre })}
           onSetOwner={(owner) => setGastoFijoOwnerFrom(menuFor.gfId, activeMonth, owner)}
           onEdit={() => {
             setEditingId(menuFor.id);

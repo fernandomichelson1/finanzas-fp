@@ -238,11 +238,19 @@ export function GastoFijoForm({ onClose, onSubmit }: { onClose: () => void; onSu
 }
 
 /** Menú kebab de una fila. */
-export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelete, onSetOwner }: { venc: VencimientoRow; mesLabel: string; onClose: () => void; onEdit: () => void; onPause: () => void; onDelete: () => void; onSetOwner: (owner: Owner) => void }) {
+export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelete, onSetOwner, onRename }: { venc: VencimientoRow; mesLabel: string; onClose: () => void; onEdit: () => void; onPause: () => void; onDelete: () => void; onSetOwner: (owner: Owner) => void; onRename: (nombre: string) => void }) {
   const c = useCatById(venc.cat) ?? FALLBACK;
   const [owner, setOwner] = useState<Owner>(venc.owner);
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(venc.nombre);
+  const saveName = () => {
+    const n = name.trim();
+    if (n) onRename(n);
+    onClose();
+  };
   const items = [
-    { id: 'edit', label: 'Editar monto y fecha', sub: 'Solo este mes', icon: <Icon.edit size={16} />, onClick: onEdit, danger: false },
+    { id: 'rename', label: 'Editar nombre', sub: 'Cambiar el nombre del gasto fijo', icon: <Icon.edit size={16} />, onClick: () => setRenaming(true), danger: false },
+    { id: 'edit', label: 'Editar monto y fecha', sub: 'Solo este mes', icon: <Icon.receipt size={16} />, onClick: onEdit, danger: false },
     { id: 'pause', label: 'Pausar gasto fijo', sub: 'Dejará de aparecer hasta reactivarlo', icon: <Icon.pause size={16} />, onClick: onPause, danger: false },
     { id: 'del', label: 'Eliminar gasto fijo', sub: 'Desaparece para siempre', icon: <Icon.trash size={16} />, onClick: onDelete, danger: true },
   ];
@@ -259,38 +267,57 @@ export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelet
           </div>
         </div>
 
-        <div className="mb-3">
-          <div className="mb-1.5 flex items-baseline justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Responsable</span>
-            <span className="text-[10.5px] text-muted">desde {mesLabel} en adelante</span>
+        {renaming ? (
+          <div>
+            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Nombre del gasto fijo</div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && saveName()}
+              className="w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[15px] text-text outline-none focus:border-accent"
+            />
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => setRenaming(false)} className="flex-1 rounded-xl border border-line bg-surface-2 py-3 text-sm font-medium text-text">Cancelar</button>
+              <button onClick={saveName} disabled={!name.trim()} className="flex-[2] rounded-xl py-3 text-sm font-semibold" style={{ background: name.trim() ? 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)' : 'var(--surface-2)', color: name.trim() ? '#fff' : 'var(--text-muted)' }}>Guardar nombre</button>
+            </div>
           </div>
-          <OwnerPicker
-            value={owner}
-            onChange={(o) => {
-              setOwner(o);
-              onSetOwner(o);
-            }}
-          />
-        </div>
+        ) : (
+          <>
+            <div className="mb-3">
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Responsable</span>
+                <span className="text-[10.5px] text-muted">desde {mesLabel} en adelante</span>
+              </div>
+              <OwnerPicker
+                value={owner}
+                onChange={(o) => {
+                  setOwner(o);
+                  onSetOwner(o);
+                }}
+              />
+            </div>
 
-        <div className="flex flex-col gap-1.5">
-          {items.map((it) => (
-            <button
-              key={it.id}
-              onClick={it.onClick}
-              className="flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left"
-              style={{ background: it.danger ? alpha('#F87171', 0.08) : 'var(--surface)', borderColor: it.danger ? alpha('#F87171', 0.22) : 'var(--border)', color: it.danger ? '#F87171' : 'var(--text)' }}
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px]" style={{ background: it.danger ? alpha('#F87171', 0.12) : 'var(--surface-2)', color: it.danger ? '#F87171' : 'var(--text)' }}>
-                {it.icon}
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-semibold">{it.label}</div>
-                <div className="mt-0.5 text-[11.5px]" style={{ color: it.danger ? alpha('#F87171', 0.7) : 'var(--text-muted)' }}>{it.sub}</div>
-              </div>
-            </button>
-          ))}
-        </div>
+            <div className="flex flex-col gap-1.5">
+              {items.map((it) => (
+                <button
+                  key={it.id}
+                  onClick={it.onClick}
+                  className="flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left"
+                  style={{ background: it.danger ? alpha('#F87171', 0.08) : 'var(--surface)', borderColor: it.danger ? alpha('#F87171', 0.22) : 'var(--border)', color: it.danger ? '#F87171' : 'var(--text)' }}
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px]" style={{ background: it.danger ? alpha('#F87171', 0.12) : 'var(--surface-2)', color: it.danger ? '#F87171' : 'var(--text)' }}>
+                    {it.icon}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold">{it.label}</div>
+                    <div className="mt-0.5 text-[11.5px]" style={{ color: it.danger ? alpha('#F87171', 0.7) : 'var(--text-muted)' }}>{it.sub}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </AdaptiveDialog>
   );
