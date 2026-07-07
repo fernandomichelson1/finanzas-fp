@@ -9,12 +9,13 @@ export interface NavItem {
   sub?: string;
 }
 
-/** Bottom tab bar (mobile): 5 destinos. */
+/** Bottom tab bar (mobile): 6 destinos. */
 export const TABS: NavItem[] = [
   { id: 'dashboard', label: 'Inicio', path: '/', icon: 'home' },
-  { id: 'gastos', label: 'Gastos fijos', path: '/vencimientos', icon: 'receipt' },
-  { id: 'movimientos', label: 'Movimientos', path: '/movimientos', icon: 'list' },
+  { id: 'gastos', label: 'Gastos', path: '/vencimientos', icon: 'receipt' },
+  { id: 'movimientos', label: 'Movim.', path: '/movimientos', icon: 'list' },
   { id: 'ahorros', label: 'Ahorros', path: '/ahorros', icon: 'piggy' },
+  { id: 'cajas', label: 'Cuentas', path: '/mas/cajas', icon: 'wallet' },
   { id: 'mas', label: 'Más', path: '/mas', icon: 'more' },
 ];
 
@@ -24,6 +25,7 @@ export const SIDEBAR_PRIMARY: NavItem[] = [
   { id: 'gastos', label: 'Gastos fijos', path: '/vencimientos', icon: 'receipt' },
   { id: 'movimientos', label: 'Movimientos', path: '/movimientos', icon: 'list' },
   { id: 'ahorros', label: 'Ahorros', path: '/ahorros', icon: 'piggy' },
+  { id: 'cajas', label: 'Cuentas', path: '/mas/cajas', icon: 'wallet' },
 ];
 
 /** Sidebar desktop — módulos secundarios (mismo set que "Más" en mobile). */

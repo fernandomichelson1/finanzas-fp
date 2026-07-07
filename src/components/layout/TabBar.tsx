@@ -18,7 +18,7 @@ export function TabBar() {
             key={t.id}
             to={t.path}
             end={t.path === '/'}
-            className="flex min-w-[56px] flex-col items-center gap-[3px] px-2.5 py-1.5 text-[10.5px] font-medium no-underline"
+            className="flex min-w-0 flex-1 flex-col items-center gap-[3px] px-1 py-1.5 text-[10px] font-medium no-underline"
           >
             {({ isActive }) => {
               const color = isActive ? ACCENT : 'var(--text-muted)';
@@ -29,7 +29,7 @@ export function TabBar() {
                   >
                     <I size={22} />
                   </div>
-                  <span style={{ color }}>{t.label}</span>
+                  <span className="max-w-full truncate whitespace-nowrap" style={{ color }}>{t.label}</span>
                   <span
                     className="h-1 w-1 rounded-full"
                     style={{ background: isActive ? ACCENT : 'transparent', boxShadow: isActive ? `0 0 6px ${ACCENT}` : 'none' }}

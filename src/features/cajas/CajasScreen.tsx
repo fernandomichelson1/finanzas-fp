@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { Caja, CajaTipo, Movimiento, UserId } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { CAJA_TIPOS } from '@/data';
@@ -15,7 +14,6 @@ import { MovRow } from '@/components/movimientos/MovRow';
 const tipoLabel = (t: CajaTipo) => CAJA_TIPOS.find((x) => x.id === t)?.label ?? t;
 
 export function CajasScreen() {
-  const navigate = useNavigate();
   const cajas = useFinanzasStore((s) => s.cajas);
   const movimientos = useFinanzasStore((s) => s.movimientos);
   const currentUser = useFinanzasStore((s) => s.currentUser);
@@ -69,7 +67,6 @@ export function CajasScreen() {
       <ScreenHeader
         title="Cuentas"
         subtitle="Cada uno administra las suyas · saldo editable"
-        onBack={() => navigate('/mas/configuracion')}
         action={
           <button onClick={() => setView('create')} className="rounded-[10px] bg-[#2563EB] px-3 py-1.5 text-[13px] font-medium text-white">+ Cuenta</button>
         }
