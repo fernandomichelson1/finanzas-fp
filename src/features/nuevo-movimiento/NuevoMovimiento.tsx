@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Caja, MovimientoTipo } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
-import { formatMiles, parseMoney, tipoSign } from '@/lib/format';
+import { saldosDeCajas } from '@/lib/selectors';
+import { fmtMonto, formatMiles, parseMoney, tipoSign } from '@/lib/format';
 import { TODAY } from '@/lib/date';
 import { alpha, shade } from '@/lib/color';
 import { uid } from '@/lib/id';
@@ -23,6 +24,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   const categories = useFinanzasStore((s) => s.categories);
   const conceptos = useFinanzasStore((s) => s.conceptos);
   const allCajas = useFinanzasStore((s) => s.cajas);
+  const movimientos = useFinanzasStore((s) => s.movimientos);
   const createConcepto = useFinanzasStore((s) => s.createConcepto);
   const addMovimiento = useFinanzasStore((s) => s.addMovimiento);
 
@@ -48,6 +50,14 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   const montoNum = parseMoney(monto);
   const needsOrigen = tipo === 'transferencia' || tipo === 'ahorro';
   const needsConcepto = tipo === 'ingreso' || tipo === 'gasto' || tipo === 'ahorro';
+
+  // Saldo real por caja, para bloquear pagos cuando no alcanza (solo lo que resta plata).
+  const saldos = useMemo(() => saldosDeCajas(allCajas, movimientos), [allCajas, movimientos]);
+  // La caja de la que SALE la plata: origen en transferencia/ahorro, la caja en gasto/retención.
+  const outCajaId = tipo === 'gasto' || tipo === 'retencion' ? cajaId : needsOrigen ? cajaOrigenId : null;
+  const outCaja = allCajas.find((c) => c.id === outCajaId) ?? null;
+  const outSaldo = outCajaId ? saldos[outCajaId] ?? 0 : 0;
+  const insuficiente = !!outCajaId && montoNum > outSaldo + 0.005;
 
   const cats = categories.filter((c) => {
     if (tipo === 'retencion') return c.tipo === 'gasto';
@@ -78,7 +88,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   };
 
   const submit = () => {
-    if (!tipo) return;
+    if (!tipo || insuficiente) return;
     addMovimiento({
       id: uid('new'),
       fecha: TODAY,
@@ -100,7 +110,8 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   const canSave =
     !!cajaId &&
     (!needsOrigen || (!!cajaOrigenId && cajaOrigenId !== cajaId)) &&
-    (!needsConcepto || !!catId);
+    (!needsConcepto || !!catId) &&
+    !insuficiente;
 
   const accent = tipo ? META[tipo].color : '#2563EB';
 
@@ -327,6 +338,21 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
                   {needsOrigen ? 'Hacia · caja de destino' : 'Caja'}
                 </div>
                 <CajaChipRow cajas={userCajas} selectedId={cajaId} excludeId={needsOrigen ? cajaOrigenId : null} onSelect={setCajaId} />
+              </div>
+            )}
+
+            {insuficiente && outCaja && (
+              <div className="mb-3.5 flex items-start gap-2.5 rounded-xl p-3" style={{ background: alpha('#DC2626', 0.1), border: `1px solid ${alpha('#DC2626', 0.35)}` }}>
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: alpha('#DC2626', 0.15), color: '#DC2626' }}>
+                  <Icon.warn size={15} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold text-text">{outCaja.nombre} no tiene saldo suficiente</div>
+                  <div className="mt-0.5 text-[11.5px] tabular-nums text-muted">
+                    Saldo: ${fmtMonto(outSaldo)} · Faltan ${fmtMonto(montoNum - outSaldo)}
+                  </div>
+                  <div className="mt-1 text-[11.5px] text-muted">Cargá un ingreso a esa cuenta o elegí otra con saldo.</div>
+                </div>
               </div>
             )}
 

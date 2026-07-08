@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Categoria, UserId, VencimientoRow } from '@/types/domain';
+import type { Categoria, Movimiento, UserId, VencimientoRow } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { useUserById } from '@/store/lookups';
 import { logout } from '@/services/session';
@@ -10,8 +10,9 @@ import {
   computeVencimientos,
   gastosDelMes,
 } from '@/lib/selectors';
-import { MES_ACTUAL, TODAY, addMonths, daysUntil, fechaCorta, mesLabel, saludoDelDia } from '@/lib/date';
-import { fmtARSCompact, fmtMonto, fmtUSD } from '@/lib/format';
+import { MES_ACTUAL, TODAY, addMonths, daysUntil, fechaCorta, mesLabel, niceDate, saludoDelDia } from '@/lib/date';
+import { fmtARSCompact, fmtMonto, fmtUSD, tipoSign } from '@/lib/format';
+import { movToNotif } from '@/lib/notif';
 import { alpha, shade } from '@/lib/color';
 import { Avatar } from '@/components/ui/Avatar';
 import { CatIcon } from '@/components/ui/CatIcon';
@@ -57,11 +58,22 @@ export function DashboardScreen() {
   const users = useFinanzasStore((s) => s.users);
   const setCurrentUser = useFinanzasStore((s) => s.setCurrentUser);
   const updateUser = useFinanzasStore((s) => s.updateUser);
+  const notifSeen = useFinanzasStore((s) => s.notifSeen);
+  const markNotifsSeen = useFinanzasStore((s) => s.markNotifsSeen);
+  const seedNotifsIfNeeded = useFinanzasStore((s) => s.seedNotifsIfNeeded);
   const u = useUserById(currentUser);
 
   const [payingFor, setPayingFor] = useState<VencimientoRow | null>(null);
   const [showBell, setShowBell] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  // Notificaciones que se muestran mientras la campanita está abierta (snapshot,
+  // para que no desaparezcan de golpe al marcarlas leídas).
+  const [notifShown, setNotifShown] = useState<Movimiento[]>([]);
+
+  // Primera vez: sembramos el historial como leído (no queremos notificar lo viejo).
+  useEffect(() => {
+    seedNotifsIfNeeded();
+  }, [seedNotifsIfNeeded]);
 
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])) as Record<string, Categoria>,
@@ -114,6 +126,21 @@ export function DashboardScreen() {
 
   const alerts = useMemo(() => alertasDeMetas(cur.porCategoria, metas), [cur, metas]);
   const catById = (id: string) => categories.find((c) => c.id === id);
+  const catNombre = (id: string | null) => (id ? catById(id)?.nombre : undefined);
+
+  // Movimientos sin leer en la campanita (los que cargamos nosotros o el otro).
+  const unread = useMemo(() => {
+    const seen = new Set(notifSeen);
+    return movimientos.filter((m) => !seen.has(m.id));
+  }, [movimientos, notifSeen]);
+  const notifCount = unread.length + alerts.length;
+
+  // Abrir la campanita: congela lo que hay sin leer y lo marca como leído (desaparece luego).
+  const openBell = () => {
+    setNotifShown(unread);
+    setShowBell(true);
+    if (unread.length) markNotifsSeen(unread.map((m) => m.id));
+  };
 
   const onPickPhoto = (file?: File) => {
     if (file) fileToAvatar(file, (uri) => updateUser(currentUser, { foto: uri }));
@@ -132,14 +159,14 @@ export function DashboardScreen() {
             {u?.nombre} <span className="text-sm font-normal capitalize text-muted">· {u?.rol}</span>
           </div>
         </div>
-        <button onClick={() => setShowBell(true)} aria-label="Notificaciones" className="relative flex h-10 w-10 items-center justify-center rounded-xl text-text transition-colors hover:bg-surface-2">
+        <button onClick={openBell} aria-label="Notificaciones" className="relative flex h-10 w-10 items-center justify-center rounded-xl text-text transition-colors hover:bg-surface-2">
           <Icon.bell size={18} />
-          {alerts.length > 0 && (
+          {notifCount > 0 && (
             <span
               className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
               style={{ background: '#DC2626', boxShadow: '0 0 0 2px var(--bg)' }}
             >
-              {alerts.length}
+              {notifCount}
             </span>
           )}
         </button>
@@ -212,7 +239,7 @@ export function DashboardScreen() {
             return (
               <button
                 key={a.cat}
-                onClick={() => setShowBell(true)}
+                onClick={openBell}
                 className="flex items-center gap-3 rounded-[14px] p-3 text-left"
                 style={{ background: `linear-gradient(135deg, ${alpha(color, 0.13)} 0%, ${alpha(color, 0.03)} 100%)`, border: `1px solid ${alpha(color, 0.27)}` }}
               >
@@ -334,14 +361,39 @@ export function DashboardScreen() {
               <h2 className="m-0 text-lg font-bold tracking-[-0.3px] text-text">Notificaciones</h2>
               <button onClick={() => setShowBell(false)} aria-label="Cerrar" className="flex h-9 w-9 items-center justify-center rounded-xl text-text hover:bg-surface-2"><Icon.close size={18} /></button>
             </div>
-            {alerts.length === 0 ? (
+
+            {notifShown.length === 0 && alerts.length === 0 ? (
               <div className="rounded-2xl border border-line bg-surface px-4 py-8 text-center">
                 <div className="mb-1.5 text-3xl opacity-60">🔔</div>
-                <div className="text-sm font-semibold text-text">Sin alertas</div>
-                <div className="mt-1 text-xs text-muted">Cuando superes una meta mensual, aparece acá.</div>
+                <div className="text-sm font-semibold text-text">Al día</div>
+                <div className="mt-1 text-xs text-muted">Cada pago o movimiento nuevo aparece acá. Cuando lo leés, se borra.</div>
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
+              <div className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
+                {/* Movimientos nuevos (lo que cargaste vos o el otro) */}
+                {notifShown.map((m) => {
+                  const n = movToNotif(m, users, catNombre);
+                  return (
+                    <div key={m.id} className="flex items-start gap-3 rounded-[14px] border border-line bg-surface p-3">
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: alpha(n.color, 0.14), color: n.color }}>
+                        {m.tipo === 'ingreso' ? <Icon.up size={17} /> : m.tipo === 'ahorro' ? <Icon.piggy size={17} /> : m.tipo === 'transferencia' ? <span className="text-base">⇄</span> : <Icon.down size={17} />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <div className="truncate text-[13.5px] font-semibold text-text">{n.titulo}</div>
+                          <div className="shrink-0 text-[13px] font-bold tabular-nums" style={{ color: n.color }}>{tipoSign(m.tipo)}${fmtMonto(m.monto)}</div>
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted">
+                          <span className="truncate">{n.sub}</span>
+                          <span className="opacity-40">·</span>
+                          <span className="shrink-0">{niceDate(m.fecha)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Alertas de metas (condiciones vivas, quedan mientras se sostengan) */}
                 {alerts.map((a) => {
                   const c = catById(a.cat);
                   const color = a.type === 'red' ? '#DC2626' : '#F59E0B';

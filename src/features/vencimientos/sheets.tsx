@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Owner, VencimientoRow } from '@/types/domain';
-import { formatMiles, moneyToInput, parseMoney } from '@/lib/format';
+import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
+import { saldosDeCajas } from '@/lib/selectors';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
 import { Icon } from '@/components/ui/icons';
@@ -42,7 +43,9 @@ function OwnerPicker({ value, onChange }: { value: Owner; onChange: (o: Owner) =
 /** Pagar un vencimiento: editar monto/fecha/responsable + elegir caja y pagar. */
 export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: () => void }) {
   const currentUser = useFinanzasStore((s) => s.currentUser);
-  const cajas = useFinanzasStore((s) => s.cajas).filter((c) => c.owner === currentUser);
+  const allCajas = useFinanzasStore((s) => s.cajas);
+  const movimientos = useFinanzasStore((s) => s.movimientos);
+  const cajas = allCajas.filter((c) => c.owner === currentUser);
   const pagarVencimiento = useFinanzasStore((s) => s.pagarVencimiento);
   const updateInstancia = useFinanzasStore((s) => s.updateInstancia);
   const setGastoFijoOwnerFrom = useFinanzasStore((s) => s.setGastoFijoOwnerFrom);
@@ -53,6 +56,11 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
   const c = useCatById(venc.cat) ?? FALLBACK;
 
   const parseMonto = () => parseMoney(monto);
+  // Saldo real de cada caja → bloqueamos el pago si la cuenta elegida no alcanza.
+  const saldos = useMemo(() => saldosDeCajas(allCajas, movimientos), [allCajas, movimientos]);
+  const selCaja = allCajas.find((ca) => ca.id === sel) ?? null;
+  const selSaldo = sel ? saldos[sel] ?? 0 : 0;
+  const insuficiente = !!sel && parseMonto() > selSaldo + 0.005;
   const fechaISO = () => `${venc.mes}-${String(Math.max(1, Math.min(31, Number(dia) || 1))).padStart(2, '0')}`;
   const applyOwner = (o: Owner) => {
     setOwner(o);
@@ -63,7 +71,7 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
     onClose();
   };
   const pagar = () => {
-    if (!sel) return;
+    if (!sel || insuficiente) return;
     pagarVencimiento({ ...venc, monto: parseMonto(), vence: fechaISO() }, sel);
     onClose();
   };
@@ -91,7 +99,7 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
             </div>
           </label>
           <label className="block">
-            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Día</div>
+            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Día venc.</div>
             <input type="number" min={1} max={31} value={dia} onChange={(e) => setDia(e.target.value)} className="w-full rounded-xl border border-line bg-surface px-2.5 py-3 text-center text-[17px] font-semibold tabular-nums text-text outline-none focus:border-accent" />
           </label>
         </div>
@@ -128,20 +136,35 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
           )}
         </div>
 
+        {insuficiente && selCaja && (
+          <div className="mb-3 flex items-start gap-2.5 rounded-xl p-3" style={{ background: alpha('#DC2626', 0.1), border: `1px solid ${alpha('#DC2626', 0.35)}` }}>
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: alpha('#DC2626', 0.15), color: '#DC2626' }}>
+              <Icon.warn size={15} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold text-text">{selCaja.nombre} no tiene saldo suficiente</div>
+              <div className="mt-0.5 text-[11.5px] tabular-nums text-muted">
+                Saldo: ${fmtMonto(selSaldo)} · Faltan ${fmtMonto(parseMonto() - selSaldo)}
+              </div>
+              <div className="mt-1 text-[11.5px] text-muted">Cargá un ingreso a esa cuenta o elegí otra con saldo.</div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2">
           <button onClick={guardar} className="rounded-[14px] border border-line bg-surface-2 px-4 py-3.5 text-[14px] font-semibold text-text">
             Guardar
           </button>
           <button
             onClick={pagar}
-            disabled={!sel}
+            disabled={!sel || insuficiente}
             className="flex flex-1 items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-semibold"
-            style={{ background: sel ? 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)' : 'var(--surface-2)', color: sel ? '#fff' : 'var(--text-muted)', boxShadow: sel ? '0 8px 20px rgba(22,163,74,0.28)' : 'none' }}
+            style={{ background: sel && !insuficiente ? 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)' : 'var(--surface-2)', color: sel && !insuficiente ? '#fff' : 'var(--text-muted)', boxShadow: sel && !insuficiente ? '0 8px 20px rgba(22,163,74,0.28)' : 'none' }}
           >
             <Icon.check size={16} strokeWidth={3} /> Confirmar pago
           </button>
         </div>
-        <div className="mt-2 text-center text-[11px] text-muted">“Guardar” ajusta monto/fecha sin marcarlo pagado.</div>
+        <div className="mt-2 text-center text-[11px] text-muted">El pago se registra con la fecha de hoy. El “Día” es solo el vencimiento.</div>
       </div>
     </AdaptiveDialog>
   );

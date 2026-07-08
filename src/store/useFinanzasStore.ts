@@ -35,6 +35,10 @@ interface UiState {
   usdFecha?: string;
   /** True si el usuario fijó el valor a mano (no se pisa con el blue automático). */
   usdManual?: boolean;
+  /** IDs de movimientos ya leídos en la campanita. LOCAL por dispositivo (no se sincroniza). */
+  notifSeen: string[];
+  /** True una vez que se "sembró" el historial como leído (para no spamear notificaciones viejas). */
+  notifInit: boolean;
 }
 
 interface Actions {
@@ -98,6 +102,8 @@ interface Actions {
   // ui
   showToast: (mov: Movimiento) => void;
   clearToast: () => void;
+  markNotifsSeen: (ids: string[]) => void;
+  seedNotifsIfNeeded: () => void;
   setUsdRate: (rate: number) => void;
   setUsdBlue: (venta: number, fecha: string) => void;
 
@@ -117,6 +123,8 @@ export const useFinanzasStore = create<FinanzasStore>()(
       currentUser: 'fer',
       toast: null,
       usdRate: 1400,
+      notifSeen: [],
+      notifInit: false,
 
       // ── sesión ──
       login: (id) => set({ loggedIn: true, currentUser: id }),
@@ -330,6 +338,19 @@ export const useFinanzasStore = create<FinanzasStore>()(
       // ── ui ──
       showToast: (mov) => set({ toast: mov }),
       clearToast: () => set({ toast: null }),
+      // Marca como leídos (desaparecen de la campanita). Se guarda solo local.
+      markNotifsSeen: (ids) =>
+        set((s) => {
+          if (ids.length === 0) return s;
+          const seen = Array.from(new Set([...ids, ...s.notifSeen])).slice(0, 800);
+          return { notifSeen: seen };
+        }),
+      // Primera vez: marca todo el historial como leído para no mostrar notificaciones viejas.
+      seedNotifsIfNeeded: () =>
+        set((s) => {
+          if (s.notifInit) return s;
+          return { notifInit: true, notifSeen: s.movimientos.map((m) => m.id).slice(0, 800) };
+        }),
       setUsdRate: (rate) => set({ usdRate: rate > 0 ? rate : 1, usdManual: true }),
       setUsdBlue: (venta, fecha) =>
         set({ usdRate: venta > 0 ? venta : 1, usdFecha: fecha, usdManual: false }),
