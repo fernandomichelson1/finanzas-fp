@@ -182,7 +182,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
         {step === 1 && (
           <div>
             <div className="grid gap-3">
-              {(['ingreso', 'gasto', 'ahorro'] as Tipo[]).map((t) => (
+              {(['ingreso', 'gasto', 'ahorro', 'transferencia'] as Tipo[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => {
@@ -193,7 +193,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
                   style={{ background: `linear-gradient(135deg, ${META[t].color} 0%, ${shade(META[t].color, -0.15)} 100%)`, boxShadow: `0 10px 24px ${alpha(META[t].color, 0.27)}` }}
                 >
                   <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[14px] bg-white/20">
-                    {t === 'ingreso' ? <Icon.up size={28} /> : t === 'gasto' ? <Icon.down size={28} /> : <Icon.piggy size={28} />}
+                    {t === 'ingreso' ? <Icon.up size={28} /> : t === 'gasto' ? <Icon.down size={28} /> : t === 'ahorro' ? <Icon.piggy size={28} /> : <span className="text-[26px] font-semibold leading-none">⇄</span>}
                   </div>
                   <div className="flex-1">
                     <div className="text-[19px] font-semibold tracking-[-0.3px]">{META[t].label}</div>
@@ -206,7 +206,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
             <div className="mt-3.5 border-t border-dashed border-line pt-3.5">
               <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-wider text-muted">Otros</div>
               <div className="grid grid-cols-2 gap-2">
-                {(['transferencia', 'retencion'] as Tipo[]).map((t) => (
+                {(['retencion'] as Tipo[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => {
@@ -216,7 +216,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
                     className="flex items-center gap-2.5 rounded-[14px] border border-line bg-surface-2 p-3 text-left text-text"
                   >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]" style={{ background: alpha(META[t].color, 0.13), color: META[t].color }}>
-                      {t === 'transferencia' ? <span className="text-lg">⇄</span> : <Icon.warn size={18} />}
+                      <Icon.warn size={18} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-semibold">{META[t].label}</div>
