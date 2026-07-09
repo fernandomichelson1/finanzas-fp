@@ -3,6 +3,8 @@ import type { Caja, CajaTipo, Movimiento, UserId } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { CAJA_TIPOS } from '@/data';
 import { saldosDeCajas, subcuentasDe, totalCuenta } from '@/lib/selectors';
+import { uid } from '@/lib/id';
+import { TODAY } from '@/lib/date';
 import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
 import { Avatar } from '@/components/ui/Avatar';
@@ -15,8 +17,8 @@ import { MovRow } from '@/components/movimientos/MovRow';
 /** Paleta para subcuentas nuevas (color automático). */
 const SUB_PALETTE = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#14B8A6', '#F97316'];
 
-/** Billetes de peso argentino, de mayor a menor (para el arqueo de efectivo). */
-const BILLETES_ARS = [20000, 10000, 2000, 1000, 500, 200, 100, 50, 20, 10];
+/** Billetes de peso argentino en uso, de mayor a menor (para el arqueo de efectivo). */
+const BILLETES_ARS = [20000, 10000, 2000, 1000, 500, 200, 100];
 
 const tipoLabel = (t: CajaTipo) => CAJA_TIPOS.find((x) => x.id === t)?.label ?? t;
 
@@ -28,6 +30,7 @@ export function CajasScreen() {
   const createCaja = useFinanzasStore((s) => s.createCaja);
   const updateCaja = useFinanzasStore((s) => s.updateCaja);
   const archiveCaja = useFinanzasStore((s) => s.archiveCaja);
+  const addMovimiento = useFinanzasStore((s) => s.addMovimiento);
 
   const [view, setView] = useState<'overview' | 'detail' | 'create' | 'edit'>('overview');
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -88,9 +91,24 @@ export function CajasScreen() {
         }}
         onOpenSub={(id) => setActiveId(id)}
         onAddSub={(nombre, saldoIni) => addSubcuenta(activa, nombre, saldoIni)}
-        onArqueo={(billetes, totalContado) => {
-          const actual = saldos[activa.id] ?? 0;
-          updateCaja(activa.id, { saldo_inicial: activa.saldo_inicial + (totalContado - actual), billetes });
+        onArqueo={(billetes, diff, motivo) => {
+          // Si hay diferencia, la reconciliamos con un asiento real (ingreso o gasto)
+          // en esta caja, con el motivo que puso el usuario. El saldo cuadra solo.
+          if (Math.abs(diff) >= 0.005 && motivo) {
+            addMovimiento({
+              id: uid('arqueo'),
+              fecha: TODAY,
+              desc: motivo,
+              monto: Math.abs(diff),
+              tipo: diff > 0 ? 'ingreso' : 'gasto',
+              cat: null,
+              concepto: null,
+              caja: activa.id,
+              user: currentUser,
+              tags: ['arqueo'],
+            });
+          }
+          updateCaja(activa.id, { billetes });
         }}
       />
     );
@@ -200,7 +218,7 @@ function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, mo
   onArchive: () => void;
   onOpenSub: (id: string) => void;
   onAddSub: (nombre: string, saldo: number) => void;
-  onArqueo: (billetes: Record<string, number>, totalContado: number) => void;
+  onArqueo: (billetes: Record<string, number>, diff: number, motivo: string) => void;
 }) {
   const movs = [...movimientos].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
   const entro = movs.filter((m) => m.caja === caja.id && (m.tipo === 'ingreso' || m.tipo === 'transferencia' || m.tipo === 'ahorro')).reduce((s, m) => s + m.monto, 0);
@@ -221,17 +239,26 @@ function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, mo
     setAdding(false);
   };
 
-  // Arqueo de caja (solo efectivo): conteo de billetes → ajusta el saldo.
+  // Arqueo de caja (solo efectivo): conteo de billetes → cuadra el saldo con un asiento.
   const [billetes, setBilletes] = useState<Record<string, number>>(() => caja.billetes ?? {});
-  useEffect(() => setBilletes(caja.billetes ?? {}), [caja.id]);
+  const [motivo, setMotivo] = useState('');
+  useEffect(() => {
+    setBilletes(caja.billetes ?? {});
+    setMotivo('');
+  }, [caja.id]);
   const totalContado = BILLETES_ARS.reduce((s, d) => s + d * (billetes[d] || 0), 0);
   const arqueoDiff = totalContado - saldo;
-  const canArqueo = totalContado > 0 && Math.abs(arqueoDiff) >= 0.005;
+  const hayDiferencia = totalContado > 0 && Math.abs(arqueoDiff) >= 0.005;
   const setQty = (d: number, v: string) => {
     const n = Math.max(0, Math.floor(Number(v) || 0));
     setBilletes((b) => ({ ...b, [d]: n }));
   };
   const fmt0 = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+  const registrarArqueo = () => {
+    if (hayDiferencia && !motivo.trim()) return;
+    onArqueo(billetes, hayDiferencia ? arqueoDiff : 0, motivo.trim());
+    setMotivo('');
+  };
 
   return (
     <div className="pt-2">
@@ -366,25 +393,41 @@ function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, mo
               </div>
             </div>
 
-            {canArqueo ? (
-              <div className="mt-2.5">
-                <div className="mb-2 text-center text-[11.5px] tabular-nums text-muted">
-                  {arqueoDiff > 0 ? 'Hay más plata de la registrada: ' : 'Falta plata respecto a lo registrado: '}
-                  <span className="font-semibold" style={{ color: arqueoDiff > 0 ? '#4ADE80' : '#F87171' }}>
-                    {arqueoDiff > 0 ? '+' : '−'}${fmt0(Math.abs(arqueoDiff))}
-                  </span>
+            {hayDiferencia ? (
+              <div className="mt-2.5 rounded-[14px] border p-3.5" style={{ borderColor: alpha(arqueoDiff > 0 ? '#16A34A' : '#DC2626', 0.35), background: alpha(arqueoDiff > 0 ? '#16A34A' : '#DC2626', 0.07) }}>
+                <div className="mb-2 text-[12.5px] tabular-nums text-text">
+                  {arqueoDiff > 0 ? (
+                    <>Contaste <span className="font-semibold" style={{ color: '#16A34A' }}>${fmt0(arqueoDiff)}</span> más que el saldo. ¿De dónde entró?</>
+                  ) : (
+                    <>Contaste <span className="font-semibold" style={{ color: '#DC2626' }}>${fmt0(Math.abs(arqueoDiff))}</span> menos que el saldo. ¿En qué se gastó?</>
+                  )}
                 </div>
+                <input
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && registrarArqueo()}
+                  placeholder={arqueoDiff > 0 ? 'Ej. Cobré un trabajo, me devolvieron plata...' : 'Ej. Compras varias, propina, taxi...'}
+                  className="mb-2.5 w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-sm text-text outline-none focus:border-accent"
+                />
                 <button
-                  onClick={() => onArqueo(billetes, totalContado)}
-                  className="w-full rounded-[12px] py-3 text-[14px] font-semibold text-white"
-                  style={{ background: `linear-gradient(135deg, ${caja.color} 0%, ${shade(caja.color, -0.18)} 100%)`, boxShadow: `0 8px 20px ${alpha(caja.color, 0.3)}` }}
+                  onClick={registrarArqueo}
+                  disabled={!motivo.trim()}
+                  className="w-full rounded-[12px] py-3 text-[14px] font-semibold"
+                  style={{
+                    background: motivo.trim() ? `linear-gradient(135deg, ${arqueoDiff > 0 ? '#16A34A' : '#DC2626'} 0%, ${shade(arqueoDiff > 0 ? '#16A34A' : '#DC2626', -0.18)} 100%)` : 'var(--surface-2)',
+                    color: motivo.trim() ? '#fff' : 'var(--text-muted)',
+                  }}
                 >
-                  Usar como saldo real (${fmt0(totalContado)})
+                  {arqueoDiff > 0 ? `Registrar ingreso de $${fmt0(arqueoDiff)}` : `Registrar gasto de $${fmt0(Math.abs(arqueoDiff))}`}
                 </button>
+                <div className="mt-1.5 text-center text-[10.5px] text-muted">Se guarda como movimiento y el saldo queda en ${fmt0(totalContado)}.</div>
               </div>
             ) : (
               totalContado > 0 && (
-                <div className="mt-2.5 text-center text-[11.5px] font-medium text-savings">El conteo coincide con el saldo ✓</div>
+                <div className="mt-2.5 flex items-center justify-between gap-2 rounded-[12px] border border-line bg-surface-2 px-3.5 py-2.5">
+                  <span className="text-[12px] font-medium text-savings">El conteo coincide con el saldo ✓</span>
+                  <button onClick={registrarArqueo} className="rounded-[9px] border border-line bg-surface px-2.5 py-1.5 text-[12px] font-semibold text-text">Guardar conteo</button>
+                </div>
               )
             )}
           </div>
