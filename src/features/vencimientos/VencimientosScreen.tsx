@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Owner, UserId, VencimientoRow as VRow } from '@/types/domain';
+import type { GastoFijo, Owner, UserId, VencimientoInstancia, VencimientoRow as VRow } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { computeVencimientos, usdPagadoDelMes } from '@/lib/selectors';
 import { MES_ACTUAL, addMonths, mesLabel } from '@/lib/date';
@@ -16,6 +16,19 @@ import { GastosFijosTable } from './GastosFijosTable';
 import { PagarSheet, GastoFijoForm, RowMenuSheet, ConfirmDeleteSheet } from './sheets';
 
 type Filter = 'pendientes' | 'pagados' | 'todos' | 'inactivos';
+
+/**
+ * "Mes de trabajo": el mes en curso mientras queden gastos fijos pendientes;
+ * cuando ya está TODO pagado, pasa solo al mes siguiente para adelantar montos
+ * y fechas. Así, al terminar de pagar, aparecen los del mes que viene sin tener
+ * que navegar a mano.
+ */
+function pickWorkingMonth(gastosFijos: GastoFijo[], instancias: VencimientoInstancia[]): string {
+  const hasActive = gastosFijos.some((gf) => gf.activo !== false);
+  if (!hasActive) return MES_ACTUAL;
+  const pend = computeVencimientos(gastosFijos, instancias, MES_ACTUAL).filter((v) => !v.pagado);
+  return pend.length === 0 ? addMonths(MES_ACTUAL, 1) : MES_ACTUAL;
+}
 
 export function VencimientosScreen() {
   const navigate = useNavigate();
@@ -33,13 +46,24 @@ export function VencimientosScreen() {
 
   const [filter, setFilter] = useState<Filter>('todos');
   const [respFilter, setRespFilter] = useState<Owner | 'todos'>('todos');
-  const [activeMonth, setActiveMonth] = useState<string>(MES_ACTUAL);
+  const [activeMonth, setActiveMonth] = useState<string>(() => pickWorkingMonth(gastosFijos, instancias));
+  // Si el usuario navega los meses a mano, dejamos de moverlo automáticamente.
+  const [userPicked, setUserPicked] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [payingFor, setPayingFor] = useState<VRow | null>(null);
   const [menuFor, setMenuFor] = useState<VRow | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; nombre: string } | null>(null);
   const isDesktop = useBreakpoint() === 'desktop';
+
+  // Mes de trabajo automático: seguimos el mes en curso hasta pagar todo, y ahí
+  // saltamos solo al siguiente (salvo que el usuario haya navegado a mano).
+  const workingMonth = useMemo(() => pickWorkingMonth(gastosFijos, instancias), [gastosFijos, instancias]);
+  useEffect(() => {
+    if (!userPicked) setActiveMonth(workingMonth);
+  }, [workingMonth, userPicked]);
+  // Mostramos el aviso cuando estamos viendo el mes que viene porque ya se pagó todo el actual.
+  const rollover = activeMonth === addMonths(MES_ACTUAL, 1) && workingMonth !== MES_ACTUAL;
 
   const allVencs = useMemo(
     () =>
@@ -107,7 +131,10 @@ export function VencimientosScreen() {
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setActiveMonth(addMonths(activeMonth, -1))}
+              onClick={() => {
+                setActiveMonth(addMonths(activeMonth, -1));
+                setUserPicked(true);
+              }}
               aria-label="Mes anterior"
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-text"
             >
@@ -117,7 +144,10 @@ export function VencimientosScreen() {
               {mesLabel(activeMonth)}
             </div>
             <button
-              onClick={() => setActiveMonth(addMonths(activeMonth, 1))}
+              onClick={() => {
+                setActiveMonth(addMonths(activeMonth, 1));
+                setUserPicked(true);
+              }}
               aria-label="Mes siguiente"
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-text"
             >
@@ -126,13 +156,27 @@ export function VencimientosScreen() {
           </div>
           {activeMonth !== MES_ACTUAL && (
             <button
-              onClick={() => setActiveMonth(MES_ACTUAL)}
+              onClick={() => {
+                setActiveMonth(MES_ACTUAL);
+                setUserPicked(true);
+              }}
               className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[12px] font-semibold text-accent"
             >
               Hoy
             </button>
           )}
         </div>
+
+        {/* Aviso de rollover: pagaste todo el mes actual → estás viendo el siguiente */}
+        {rollover && (
+          <div className="mb-3 flex items-start gap-2.5 rounded-xl p-3" style={{ background: alpha('#16A34A', 0.1), border: `1px solid ${alpha('#16A34A', 0.3)}` }}>
+            <div className="mt-0.5 shrink-0 text-base">🎉</div>
+            <div className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-text">
+              <span className="font-semibold">Pagaste todo {mesLabel(MES_ACTUAL)}.</span>{' '}
+              <span className="text-muted">Ya podés adelantar {mesLabel(activeMonth)}: ajustá montos y fechas para tenerlo listo. Tocá “Hoy” para volver al mes actual.</span>
+            </div>
+          </div>
+        )}
 
         {/* Resumen */}
         <div className="relative mb-3.5 overflow-hidden rounded-[18px] p-4" style={{ background: 'linear-gradient(160deg, #1E293B 0%, #0F172A 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
