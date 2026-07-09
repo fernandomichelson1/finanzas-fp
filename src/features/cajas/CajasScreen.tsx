@@ -2,14 +2,18 @@ import { useMemo, useState } from 'react';
 import type { Caja, CajaTipo, Movimiento, UserId } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { CAJA_TIPOS } from '@/data';
-import { saldosDeCajas } from '@/lib/selectors';
+import { saldosDeCajas, subcuentasDe, totalCuenta } from '@/lib/selectors';
 import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
 import { Avatar } from '@/components/ui/Avatar';
 import { CatIcon } from '@/components/ui/CatIcon';
+import { Icon } from '@/components/ui/icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { MovRow } from '@/components/movimientos/MovRow';
+
+/** Paleta para subcuentas nuevas (color automático). */
+const SUB_PALETTE = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#14B8A6', '#F97316'];
 
 const tipoLabel = (t: CajaTipo) => CAJA_TIPOS.find((x) => x.id === t)?.label ?? t;
 
@@ -35,6 +39,19 @@ export function CajasScreen() {
   const patrimonio = Object.values(totals).reduce((s, v) => s + v, 0);
   const activa = cajas.find((c) => c.id === activeId);
 
+  const addSubcuenta = (parent: Caja, nombre: string, saldoInicial: number) => {
+    const idx = subcuentasDe(cajas, parent.id).length;
+    createCaja({
+      nombre,
+      tipo: parent.tipo,
+      color: SUB_PALETTE[idx % SUB_PALETTE.length],
+      icono: parent.icono ?? '💸',
+      owner: parent.owner,
+      saldo_inicial: saldoInicial,
+      parent: parent.id,
+    });
+  };
+
   if (view === 'create') {
     return <CajaForm owner={currentUser} onBack={() => setView('overview')} onSubmit={(p) => { createCaja(p); setView('overview'); }} />;
   }
@@ -49,15 +66,25 @@ export function CajasScreen() {
     );
   }
   if (view === 'detail' && activa) {
+    const subs = subcuentasDe(cajas, activa.id).map((c) => ({ caja: c, saldo: saldos[c.id] ?? 0 }));
     return (
       <CajaDetalle
         caja={activa}
         saldo={saldos[activa.id] ?? 0}
+        total={totalCuenta(cajas, saldos, activa.id)}
         ownerName={users[activa.owner]?.nombre ?? ''}
+        parentCaja={activa.parent ? cajas.find((c) => c.id === activa.parent) ?? null : null}
+        subcuentas={subs}
         movimientos={movimientos.filter((m) => m.caja === activa.id || m.caja_origen === activa.id)}
-        onBack={() => setView('overview')}
+        onBack={() => (activa.parent ? setActiveId(activa.parent) : setView('overview'))}
         onEdit={() => setView('edit')}
-        onArchive={() => { archiveCaja(activa.id); setView('overview'); }}
+        onArchive={() => {
+          archiveCaja(activa.id);
+          if (activa.parent) setActiveId(activa.parent);
+          else setView('overview');
+        }}
+        onOpenSub={(id) => setActiveId(id)}
+        onAddSub={(nombre, saldoIni) => addSubcuenta(activa, nombre, saldoIni)}
       />
     );
   }
@@ -92,32 +119,40 @@ export function CajasScreen() {
           </div>
         </div>
 
-        <SectionCajas title="Mis cuentas" subtitle={users[currentUser]?.nombre} cajas={cajas.filter((c) => c.owner === currentUser)} saldos={saldos} onTap={(c) => { setActiveId(c.id); setView('detail'); }} />
-        <SectionCajas title={`Cuentas de ${users[otherUser]?.nombre}`} cajas={cajas.filter((c) => c.owner !== currentUser)} saldos={saldos} onTap={(c) => { setActiveId(c.id); setView('detail'); }} />
+        <SectionCajas title="Mis cuentas" subtitle={users[currentUser]?.nombre} cajas={cajas} owner={currentUser} saldos={saldos} onTap={(c) => { setActiveId(c.id); setView('detail'); }} />
+        <SectionCajas title={`Cuentas de ${users[otherUser]?.nombre}`} cajas={cajas} owner={otherUser} saldos={saldos} onTap={(c) => { setActiveId(c.id); setView('detail'); }} />
 
         <div className="px-2 py-4 text-center text-[11.5px] leading-relaxed text-muted">
-          Tocá una cuenta para ver el detalle, editarla o eliminarla.<br />El saldo se calcula como saldo inicial + movimientos. Las cuentas no están conectadas a tus bancos reales.
+          Tocá una cuenta para ver el detalle o agregarle subcuentas.<br />El saldo se calcula como saldo inicial + movimientos. Las cuentas no están conectadas a tus bancos reales.
         </div>
       </div>
     </div>
   );
 }
 
-function SectionCajas({ title, subtitle, cajas, saldos, onTap }: { title: string; subtitle?: string; cajas: Caja[]; saldos: Record<string, number>; onTap: (c: Caja) => void }) {
-  if (cajas.length === 0) return null;
+function SectionCajas({ title, subtitle, cajas, owner, saldos, onTap }: { title: string; subtitle?: string; cajas: Caja[]; owner: UserId; saldos: Record<string, number>; onTap: (c: Caja) => void }) {
+  // Solo cuentas madre (sin parent) de este dueño; las subcuentas se ven adentro.
+  const madre = cajas.filter((c) => c.owner === owner && !c.parent);
+  if (madre.length === 0) return null;
   return (
     <div className="mb-4">
       <SectionHeader title={title} subtitle={subtitle} />
       <div className="grid gap-2.5 sm:grid-cols-2">
-        {cajas.map((c) => (
-          <CajaCard key={c.id} caja={c} saldo={saldos[c.id] ?? 0} onClick={() => onTap(c)} />
+        {madre.map((c) => (
+          <CajaCard
+            key={c.id}
+            caja={c}
+            saldo={totalCuenta(cajas, saldos, c.id)}
+            subCount={subcuentasDe(cajas, c.id).length}
+            onClick={() => onTap(c)}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-export function CajaCard({ caja, saldo, onClick }: { caja: Caja; saldo: number; onClick?: () => void }) {
+export function CajaCard({ caja, saldo, subCount = 0, onClick }: { caja: Caja; saldo: number; subCount?: number; onClick?: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -131,26 +166,57 @@ export function CajaCard({ caja, saldo, onClick }: { caja: Caja; saldo: number; 
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14.5px] font-semibold">{caja.nombre}</div>
-          <div className="mt-0.5 truncate text-[10.5px] uppercase tracking-wide text-white/70">{tipoLabel(caja.tipo)}</div>
+          <div className="mt-0.5 truncate text-[10.5px] uppercase tracking-wide text-white/70">
+            {tipoLabel(caja.tipo)}
+            {subCount > 0 && ` · ${subCount} subcuenta${subCount > 1 ? 's' : ''}`}
+          </div>
         </div>
         <div className="text-right">
           <div className="whitespace-nowrap text-[17px] font-bold tabular-nums tracking-[-0.3px]">${fmtMonto(saldo)}</div>
-          <div className="mt-0.5 text-[10px] text-white/60">Saldo</div>
+          <div className="mt-0.5 text-[10px] text-white/60">{subCount > 0 ? 'Total' : 'Saldo'}</div>
         </div>
       </div>
     </button>
   );
 }
 
-function CajaDetalle({ caja, saldo, ownerName, movimientos, onBack, onEdit, onArchive }: { caja: Caja; saldo: number; ownerName: string; movimientos: Movimiento[]; onBack: () => void; onEdit: () => void; onArchive: () => void }) {
+function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, movimientos, onBack, onEdit, onArchive, onOpenSub, onAddSub }: {
+  caja: Caja;
+  saldo: number;
+  total: number;
+  ownerName: string;
+  parentCaja: Caja | null;
+  subcuentas: { caja: Caja; saldo: number }[];
+  movimientos: Movimiento[];
+  onBack: () => void;
+  onEdit: () => void;
+  onArchive: () => void;
+  onOpenSub: (id: string) => void;
+  onAddSub: (nombre: string, saldo: number) => void;
+}) {
   const movs = [...movimientos].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
   const entro = movs.filter((m) => m.caja === caja.id && (m.tipo === 'ingreso' || m.tipo === 'transferencia' || m.tipo === 'ahorro')).reduce((s, m) => s + m.monto, 0);
   const salio = movs.filter((m) => (m.caja === caja.id && (m.tipo === 'gasto' || m.tipo === 'retencion')) || m.caja_origen === caja.id).reduce((s, m) => s + m.monto, 0);
+  const hasSubs = subcuentas.length > 0;
+  const esSubcuenta = !!parentCaja;
+  const subsTotal = subcuentas.reduce((s, x) => s + x.saldo, 0);
+
+  const [adding, setAdding] = useState(false);
+  const [subNombre, setSubNombre] = useState('');
+  const [subSaldo, setSubSaldo] = useState('');
+  const crearSub = () => {
+    if (!subNombre.trim()) return;
+    onAddSub(subNombre.trim(), parseMoney(subSaldo));
+    setSubNombre('');
+    setSubSaldo('');
+    setAdding(false);
+  };
 
   return (
     <div className="pt-2">
       <ScreenHeader
         title={caja.nombre}
+        subtitle={esSubcuenta ? `Subcuenta de ${parentCaja!.nombre}` : undefined}
         size="md"
         onBack={onBack}
         action={
@@ -171,11 +237,68 @@ function CajaDetalle({ caja, saldo, ownerName, movimientos, onBack, onEdit, onAr
                 <div className="text-sm font-medium">{ownerName}</div>
               </div>
             </div>
-            <div className="text-[11px] uppercase tracking-[1.2px] text-white/65">Saldo actual</div>
-            <div className="mt-1 text-[32px] font-bold tabular-nums tracking-[-0.8px]">${fmtMonto(saldo)}</div>
-            <div className="mt-1 text-[11px] tabular-nums text-white/60">Saldo inicial: ${fmtMonto(caja.saldo_inicial)}</div>
+            <div className="text-[11px] uppercase tracking-[1.2px] text-white/65">{hasSubs ? 'Total (con subcuentas)' : 'Saldo actual'}</div>
+            <div className="mt-1 text-[32px] font-bold tabular-nums tracking-[-0.8px]">${fmtMonto(hasSubs ? total : saldo)}</div>
+            <div className="mt-1 text-[11px] tabular-nums text-white/60">
+              {hasSubs ? `Principal $${fmtMonto(saldo)} · Subcuentas $${fmtMonto(subsTotal)}` : `Saldo inicial: $${fmtMonto(caja.saldo_inicial)}`}
+            </div>
           </div>
         </div>
+
+        {/* Subcuentas (solo para cuentas madre) */}
+        {!esSubcuenta && (
+          <div className="mb-4">
+            <SectionHeader
+              title="Subcuentas"
+              subtitle={hasSubs ? `Principal + ${subcuentas.length}` : 'Dividí esta cuenta en partes'}
+              action="+ Subcuenta"
+              onAction={() => setAdding((v) => !v)}
+            />
+
+            <div className="overflow-hidden rounded-[16px] border border-line bg-surface">
+              {/* Principal */}
+              <div className="flex items-center gap-3 border-b border-line px-3.5 py-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px]" style={{ background: alpha(caja.color, 0.15), color: caja.color }}>
+                  <CatIcon item={caja} size={18} />
+                </div>
+                <div className="min-w-0 flex-1 text-[13.5px] font-medium text-text">Principal</div>
+                <div className="text-[14px] font-semibold tabular-nums text-text">${fmtMonto(saldo)}</div>
+              </div>
+              {subcuentas.map(({ caja: sc, saldo: ss }) => (
+                <button key={sc.id} onClick={() => onOpenSub(sc.id)} className="flex w-full items-center gap-3 border-b border-line px-3.5 py-3 text-left last:border-b-0 hover:bg-surface-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px]" style={{ background: alpha(sc.color, 0.15), color: sc.color }}>
+                    <CatIcon item={sc} size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-text">{sc.nombre}</div>
+                  <div className="text-[14px] font-semibold tabular-nums text-text">${fmtMonto(ss)}</div>
+                  <Icon.chev size={14} className="text-muted" />
+                </button>
+              ))}
+            </div>
+
+            {adding && (
+              <div className="mt-2.5 rounded-[14px] border border-dashed border-line-strong bg-surface-2 p-3.5">
+                <div className="mb-2 text-[11.5px] font-semibold uppercase tracking-wider text-muted">Nueva subcuenta de {caja.nombre}</div>
+                <input
+                  value={subNombre}
+                  onChange={(e) => setSubNombre(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && crearSub()}
+                  autoFocus
+                  placeholder="Nombre (ej. Mami Fitness, Personal...)"
+                  className="mb-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-sm text-text outline-none focus:border-accent"
+                />
+                <div className="relative mb-2.5">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[15px] text-muted">$</span>
+                  <input inputMode="decimal" value={subSaldo} onChange={(e) => setSubSaldo(formatMiles(e.target.value))} placeholder="Saldo de esta subcuenta" className="w-full rounded-[10px] border border-line bg-surface py-2.5 pl-7 pr-3 text-sm font-semibold tabular-nums text-text outline-none focus:border-accent" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => { setAdding(false); setSubNombre(''); setSubSaldo(''); }} className="flex-1 rounded-[10px] border border-line bg-surface py-2.5 text-[13px] font-medium text-muted">Cancelar</button>
+                  <button onClick={crearSub} disabled={!subNombre.trim()} className="flex-[2] rounded-[10px] py-2.5 text-[13px] font-semibold" style={{ background: subNombre.trim() ? '#2563EB' : 'var(--surface)', color: subNombre.trim() ? '#fff' : 'var(--text-muted)' }}>Crear subcuenta</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mb-4 grid grid-cols-2 gap-2">
           <div className="rounded-[14px] border border-line bg-surface px-3.5 py-3">
@@ -188,9 +311,9 @@ function CajaDetalle({ caja, saldo, ownerName, movimientos, onBack, onEdit, onAr
           </div>
         </div>
 
-        <SectionHeader title="Movimientos" subtitle={`${movs.length} en esta caja`} />
+        <SectionHeader title="Movimientos" subtitle={`${movs.length} en ${esSubcuenta ? 'esta subcuenta' : 'el Principal'}`} />
         {movs.length === 0 ? (
-          <div className="rounded-2xl border border-line bg-surface p-6 text-center text-[13px] text-muted">Sin movimientos en esta caja todavía.</div>
+          <div className="rounded-2xl border border-line bg-surface p-6 text-center text-[13px] text-muted">Sin movimientos acá todavía.</div>
         ) : (
           <div className="overflow-hidden rounded-[18px] border border-line bg-surface">
             {movs.map((m, i) => <MovRow key={m.id} mov={m} isLast={i === movs.length - 1} />)}

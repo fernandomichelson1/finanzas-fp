@@ -149,6 +149,8 @@ export interface Caja {
   owner: UserId;
   saldo_inicial: number;
   archivada?: boolean;
+  /** Si está seteado, esta caja es una SUBCUENTA de la caja con este id (un solo nivel). */
+  parent?: string;
 }
 
 export interface CajaTipoDef {

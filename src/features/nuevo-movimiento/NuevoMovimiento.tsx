@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Caja, CategoriaTipo, MovimientoTipo } from '@/types/domain';
+import type { Caja, CategoriaTipo, MovimientoTipo, UserId, Usuario } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
-import { saldosDeCajas } from '@/lib/selectors';
+import { cajasUsables, saldosDeCajas } from '@/lib/selectors';
 import { fmtMonto, formatMiles, parseMoney, tipoSign } from '@/lib/format';
 import { TODAY } from '@/lib/date';
 import { alpha, shade } from '@/lib/color';
@@ -24,6 +24,7 @@ const META: Record<Tipo, { color: string; label: string; sub: string }> = {
 
 export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   const currentUser = useFinanzasStore((s) => s.currentUser);
+  const users = useFinanzasStore((s) => s.users);
   const categories = useFinanzasStore((s) => s.categories);
   const conceptos = useFinanzasStore((s) => s.conceptos);
   const allCajas = useFinanzasStore((s) => s.cajas);
@@ -52,7 +53,8 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
     setStep(1);
   }, []);
 
-  const userCajas = allCajas.filter((c) => c.owner === currentUser);
+  // Cajas usables por el usuario: propias + efectivo compartido, con subcuentas.
+  const userCajas = useMemo(() => cajasUsables(allCajas, currentUser), [allCajas, currentUser]);
   const montoNum = parseMoney(monto);
   const needsOrigen = tipo === 'transferencia' || tipo === 'ahorro';
   const needsConcepto = tipo === 'ingreso' || tipo === 'gasto' || tipo === 'ahorro';
@@ -417,6 +419,9 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
                   selectedId={needsOrigen ? cajaOrigenId : cajaId}
                   excludeId={needsOrigen ? cajaId : null}
                   onSelect={(id) => (needsOrigen ? setCajaOrigenId(id) : setCajaId(id))}
+                  allCajas={allCajas}
+                  users={users}
+                  currentUser={currentUser}
                 />
               </div>
             )}
@@ -425,7 +430,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
                 <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
                   {needsOrigen ? 'Hacia · caja de destino' : 'Caja'}
                 </div>
-                <CajaChipRow cajas={userCajas} selectedId={cajaId} excludeId={needsOrigen ? cajaOrigenId : null} onSelect={setCajaId} />
+                <CajaChipRow cajas={userCajas} selectedId={cajaId} excludeId={needsOrigen ? cajaOrigenId : null} onSelect={setCajaId} allCajas={allCajas} users={users} currentUser={currentUser} />
               </div>
             )}
 
@@ -492,7 +497,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   );
 }
 
-function CajaChipRow({ cajas, selectedId, onSelect, excludeId }: { cajas: Caja[]; selectedId: string | null; onSelect: (id: string) => void; excludeId: string | null }) {
+function CajaChipRow({ cajas, selectedId, onSelect, excludeId, allCajas, users, currentUser }: { cajas: Caja[]; selectedId: string | null; onSelect: (id: string) => void; excludeId: string | null; allCajas: Caja[]; users: Record<UserId, Usuario>; currentUser: UserId }) {
   const items = cajas.filter((c) => !excludeId || c.id !== excludeId);
   if (items.length === 0) {
     return (
@@ -505,6 +510,13 @@ function CajaChipRow({ cajas, selectedId, onSelect, excludeId }: { cajas: Caja[]
     <div className="hide-scroll flex gap-2 overflow-x-auto pb-1">
       {items.map((c) => {
         const sel = selectedId === c.id;
+        const parent = c.parent ? allCajas.find((p) => p.id === c.parent) : null;
+        // Pista: subcuenta → cuenta madre; efectivo del otro → "de Fulano".
+        const hint = parent
+          ? parent.nombre
+          : c.tipo === 'efectivo' && c.owner !== currentUser
+            ? `de ${users[c.owner]?.nombre ?? ''}`
+            : null;
         return (
           <button
             key={c.id}
@@ -515,7 +527,13 @@ function CajaChipRow({ cajas, selectedId, onSelect, excludeId }: { cajas: Caja[]
             <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-[7px]" style={{ background: sel ? 'rgba(255,255,255,0.22)' : alpha(c.color, 0.15) }}>
               <CatIcon item={c} size={16} />
             </div>
-            <span className="whitespace-nowrap text-[13px] font-semibold">{c.nombre}</span>
+            <span className="flex flex-col items-start leading-tight">
+              <span className="whitespace-nowrap text-[13px] font-semibold">
+                {parent && <span className="opacity-70">↳ </span>}
+                {c.nombre}
+              </span>
+              {hint && <span className="whitespace-nowrap text-[9.5px] font-medium opacity-70">{hint}</span>}
+            </span>
           </button>
         );
       })}

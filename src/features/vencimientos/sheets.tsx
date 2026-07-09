@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Owner, VencimientoRow } from '@/types/domain';
 import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
-import { saldosDeCajas } from '@/lib/selectors';
+import { cajasUsables, saldosDeCajas } from '@/lib/selectors';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
 import { Icon } from '@/components/ui/icons';
@@ -43,9 +43,11 @@ function OwnerPicker({ value, onChange }: { value: Owner; onChange: (o: Owner) =
 /** Pagar un vencimiento: editar monto/fecha/responsable + elegir caja y pagar. */
 export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: () => void }) {
   const currentUser = useFinanzasStore((s) => s.currentUser);
+  const users = useFinanzasStore((s) => s.users);
   const allCajas = useFinanzasStore((s) => s.cajas);
   const movimientos = useFinanzasStore((s) => s.movimientos);
-  const cajas = allCajas.filter((c) => c.owner === currentUser);
+  // Propias + efectivo compartido, con subcuentas (ordenadas bajo su cuenta madre).
+  const cajas = useMemo(() => cajasUsables(allCajas, currentUser), [allCajas, currentUser]);
   const pagarVencimiento = useFinanzasStore((s) => s.pagarVencimiento);
   const updateInstancia = useFinanzasStore((s) => s.updateInstancia);
   const setGastoFijoOwnerFrom = useFinanzasStore((s) => s.setGastoFijoOwnerFrom);
@@ -114,17 +116,26 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
         <div className="mb-4 flex flex-col gap-1.5">
           {cajas.map((ca) => {
             const active = sel === ca.id;
+            const parent = ca.parent ? allCajas.find((p) => p.id === ca.parent) : null;
+            const hint = parent
+              ? parent.nombre
+              : ca.tipo === 'efectivo' && ca.owner !== currentUser
+                ? `Efectivo de ${users[ca.owner]?.nombre ?? ''}`
+                : null;
             return (
               <button
                 key={ca.id}
                 onClick={() => setSel(ca.id)}
                 className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left"
-                style={{ background: active ? alpha(ca.color, 0.13) : 'var(--surface)', border: `1px solid ${active ? ca.color : 'var(--border)'}` }}
+                style={{ background: active ? alpha(ca.color, 0.13) : 'var(--surface)', border: `1px solid ${active ? ca.color : 'var(--border)'}`, marginLeft: parent ? 14 : 0 }}
               >
                 <div className="flex h-[30px] w-[30px] items-center justify-center overflow-hidden rounded-[9px]" style={{ background: alpha(ca.color, 0.2) }}>
                   <CatIcon item={ca} size={18} />
                 </div>
-                <span className="flex-1 text-sm font-medium text-text">{ca.nombre}</span>
+                <span className="flex flex-1 flex-col leading-tight">
+                  <span className="text-sm font-medium text-text">{parent && <span className="opacity-60">↳ </span>}{ca.nombre}</span>
+                  {hint && <span className="text-[10.5px] text-muted">{hint}</span>}
+                </span>
                 {active && <Icon.check size={16} strokeWidth={3} style={{ color: ca.color }} />}
               </button>
             );

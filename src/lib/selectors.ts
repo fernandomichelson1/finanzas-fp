@@ -8,6 +8,7 @@ import type {
   Metas,
   Movimiento,
   Owner,
+  UserId,
   VencimientoInstancia,
   VencimientoRow,
 } from '@/types/domain';
@@ -16,6 +17,28 @@ import { MES_ACTUAL, addMonths, daysInMonth, mesLabelCorto } from './date';
 /** Movimientos de un mes ('YYYY-MM'). */
 export function movimientosDelMes(movs: Movimiento[], mes: Mes = MES_ACTUAL): Movimiento[] {
   return movs.filter((m) => m.fecha.startsWith(mes));
+}
+
+/** Subcuentas (hijas) de una caja. */
+export function subcuentasDe(cajas: Caja[], parentId: string): Caja[] {
+  return cajas.filter((c) => c.parent === parentId);
+}
+
+/** Total de una cuenta = su propio saldo (Principal) + el de todas sus subcuentas. */
+export function totalCuenta(cajas: Caja[], saldos: Record<string, number>, cajaId: string): number {
+  const propio = saldos[cajaId] ?? 0;
+  return subcuentasDe(cajas, cajaId).reduce((s, c) => s + (saldos[c.id] ?? 0), propio);
+}
+
+/**
+ * Cajas que un usuario puede USAR para cargar movimientos: las propias + cualquier
+ * caja de tipo efectivo (el efectivo es compartido entre ambos). Ordenadas con cada
+ * subcuenta a continuación de su cuenta madre. Excluye archivadas.
+ */
+export function cajasUsables(cajas: Caja[], userId: UserId): Caja[] {
+  const usable = (c: Caja) => !c.archivada && (c.owner === userId || c.tipo === 'efectivo');
+  const top = cajas.filter((c) => !c.parent && usable(c));
+  return top.flatMap((p) => [p, ...cajas.filter((c) => c.parent === p.id && usable(c))]);
 }
 
 /** Saldo de cada caja = saldo_inicial + ingresos − gastos ± transferencias/ahorros. */

@@ -242,7 +242,9 @@ export const useFinanzasStore = create<FinanzasStore>()(
       },
       updateCaja: (id, payload) =>
         set((s) => ({ cajas: s.cajas.map((c) => (c.id === id ? { ...c, ...payload } : c)) })),
-      archiveCaja: (id) => set((s) => ({ cajas: s.cajas.filter((c) => c.id !== id) })),
+      // Al eliminar una cuenta también se van sus subcuentas (parent === id).
+      archiveCaja: (id) =>
+        set((s) => ({ cajas: s.cajas.filter((c) => c.id !== id && c.parent !== id) })),
 
       // ── gastos fijos / vencimientos ──
       createGastoFijo: ({ nombre, cat, diaVenc, montoSugerido, owner }) =>
