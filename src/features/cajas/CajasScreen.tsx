@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Caja, CajaTipo, Movimiento, UserId } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { CAJA_TIPOS } from '@/data';
@@ -14,6 +14,9 @@ import { MovRow } from '@/components/movimientos/MovRow';
 
 /** Paleta para subcuentas nuevas (color automático). */
 const SUB_PALETTE = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#14B8A6', '#F97316'];
+
+/** Billetes de peso argentino, de mayor a menor (para el arqueo de efectivo). */
+const BILLETES_ARS = [20000, 10000, 2000, 1000, 500, 200, 100, 50, 20, 10];
 
 const tipoLabel = (t: CajaTipo) => CAJA_TIPOS.find((x) => x.id === t)?.label ?? t;
 
@@ -85,6 +88,10 @@ export function CajasScreen() {
         }}
         onOpenSub={(id) => setActiveId(id)}
         onAddSub={(nombre, saldoIni) => addSubcuenta(activa, nombre, saldoIni)}
+        onArqueo={(billetes, totalContado) => {
+          const actual = saldos[activa.id] ?? 0;
+          updateCaja(activa.id, { saldo_inicial: activa.saldo_inicial + (totalContado - actual), billetes });
+        }}
       />
     );
   }
@@ -180,7 +187,7 @@ export function CajaCard({ caja, saldo, subCount = 0, onClick }: { caja: Caja; s
   );
 }
 
-function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, movimientos, onBack, onEdit, onArchive, onOpenSub, onAddSub }: {
+function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, movimientos, onBack, onEdit, onArchive, onOpenSub, onAddSub, onArqueo }: {
   caja: Caja;
   saldo: number;
   total: number;
@@ -193,12 +200,14 @@ function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, mo
   onArchive: () => void;
   onOpenSub: (id: string) => void;
   onAddSub: (nombre: string, saldo: number) => void;
+  onArqueo: (billetes: Record<string, number>, totalContado: number) => void;
 }) {
   const movs = [...movimientos].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
   const entro = movs.filter((m) => m.caja === caja.id && (m.tipo === 'ingreso' || m.tipo === 'transferencia' || m.tipo === 'ahorro')).reduce((s, m) => s + m.monto, 0);
   const salio = movs.filter((m) => (m.caja === caja.id && (m.tipo === 'gasto' || m.tipo === 'retencion')) || m.caja_origen === caja.id).reduce((s, m) => s + m.monto, 0);
   const hasSubs = subcuentas.length > 0;
   const esSubcuenta = !!parentCaja;
+  const esEfectivo = caja.tipo === 'efectivo';
   const subsTotal = subcuentas.reduce((s, x) => s + x.saldo, 0);
 
   const [adding, setAdding] = useState(false);
@@ -211,6 +220,18 @@ function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, mo
     setSubSaldo('');
     setAdding(false);
   };
+
+  // Arqueo de caja (solo efectivo): conteo de billetes → ajusta el saldo.
+  const [billetes, setBilletes] = useState<Record<string, number>>(() => caja.billetes ?? {});
+  useEffect(() => setBilletes(caja.billetes ?? {}), [caja.id]);
+  const totalContado = BILLETES_ARS.reduce((s, d) => s + d * (billetes[d] || 0), 0);
+  const arqueoDiff = totalContado - saldo;
+  const canArqueo = totalContado > 0 && Math.abs(arqueoDiff) >= 0.005;
+  const setQty = (d: number, v: string) => {
+    const n = Math.max(0, Math.floor(Number(v) || 0));
+    setBilletes((b) => ({ ...b, [d]: n }));
+  };
+  const fmt0 = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
   return (
     <div className="pt-2">
@@ -310,6 +331,64 @@ function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, mo
             <div className="mt-1 text-[17px] font-bold tabular-nums text-expense">−${fmtMonto(salio)}</div>
           </div>
         </div>
+
+        {/* Arqueo de caja — solo efectivo */}
+        {esEfectivo && (
+          <div className="mb-4">
+            <SectionHeader title="Arqueo de caja" subtitle="Contá los billetes y cuadrá el saldo" />
+            <div className="overflow-hidden rounded-[16px] border border-line bg-surface">
+              <div className="flex items-center gap-2.5 border-b border-line bg-surface-2 px-3.5 py-2 text-[10.5px] font-semibold uppercase tracking-wide text-muted">
+                <div className="w-[74px]">Billete</div>
+                <div className="w-16 text-center">Cantidad</div>
+                <div className="flex-1 text-right">Subtotal</div>
+              </div>
+              {BILLETES_ARS.map((d) => {
+                const q = billetes[d] || 0;
+                return (
+                  <div key={d} className="flex items-center gap-2.5 border-b border-line px-3.5 py-2 last:border-b-0">
+                    <div className="w-[74px] text-[13.5px] font-semibold tabular-nums text-text">${fmt0(d)}</div>
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={q === 0 ? '' : q}
+                      onChange={(e) => setQty(d, e.target.value)}
+                      placeholder="0"
+                      className="w-16 rounded-lg border border-line bg-surface px-2 py-1.5 text-center text-[14px] tabular-nums text-text outline-none focus:border-accent"
+                    />
+                    <div className="flex-1 text-right text-[13px] tabular-nums text-muted">{q > 0 ? `$${fmt0(d * q)}` : '—'}</div>
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between bg-surface-2 px-3.5 py-3">
+                <div className="text-[12px] font-semibold uppercase tracking-wide text-muted">Total contado</div>
+                <div className="text-[19px] font-bold tabular-nums text-text">${fmt0(totalContado)}</div>
+              </div>
+            </div>
+
+            {canArqueo ? (
+              <div className="mt-2.5">
+                <div className="mb-2 text-center text-[11.5px] tabular-nums text-muted">
+                  {arqueoDiff > 0 ? 'Hay más plata de la registrada: ' : 'Falta plata respecto a lo registrado: '}
+                  <span className="font-semibold" style={{ color: arqueoDiff > 0 ? '#4ADE80' : '#F87171' }}>
+                    {arqueoDiff > 0 ? '+' : '−'}${fmt0(Math.abs(arqueoDiff))}
+                  </span>
+                </div>
+                <button
+                  onClick={() => onArqueo(billetes, totalContado)}
+                  className="w-full rounded-[12px] py-3 text-[14px] font-semibold text-white"
+                  style={{ background: `linear-gradient(135deg, ${caja.color} 0%, ${shade(caja.color, -0.18)} 100%)`, boxShadow: `0 8px 20px ${alpha(caja.color, 0.3)}` }}
+                >
+                  Usar como saldo real (${fmt0(totalContado)})
+                </button>
+              </div>
+            ) : (
+              totalContado > 0 && (
+                <div className="mt-2.5 text-center text-[11.5px] font-medium text-savings">El conteo coincide con el saldo ✓</div>
+              )
+            )}
+          </div>
+        )}
 
         <SectionHeader title="Movimientos" subtitle={`${movs.length} en ${esSubcuenta ? 'esta subcuenta' : 'el Principal'}`} />
         {movs.length === 0 ? (

@@ -151,6 +151,8 @@ export interface Caja {
   archivada?: boolean;
   /** Si está seteado, esta caja es una SUBCUENTA de la caja con este id (un solo nivel). */
   parent?: string;
+  /** Arqueo de caja (solo efectivo): cantidad de billetes por denominación. Ej: { '20000': 2 }. */
+  billetes?: Record<string, number>;
 }
 
 export interface CajaTipoDef {
