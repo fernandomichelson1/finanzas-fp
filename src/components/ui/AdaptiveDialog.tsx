@@ -21,12 +21,29 @@ export function AdaptiveDialog({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
-    // Bloquea el scroll del fondo mientras la hoja está abierta.
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    // Bloqueo de scroll del fondo a prueba de iOS: `overflow:hidden` en el body
+    // no alcanza en Safari móvil (sigue scrolleando la página de atrás). Fijamos el
+    // body con position:fixed y restauramos la posición al cerrar.
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
+      Object.assign(body.style, prev);
+      window.scrollTo(0, scrollY);
     };
   }, [open, onClose]);
 

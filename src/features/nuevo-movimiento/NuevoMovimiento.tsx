@@ -178,7 +178,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Content */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-[22px]">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-[22px]">
         {step === 1 && (
           <div>
             <div className="grid gap-3">
