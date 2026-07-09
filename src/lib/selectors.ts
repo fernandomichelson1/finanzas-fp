@@ -166,6 +166,22 @@ export function fijoEstimadoProxMes(
     }, 0);
 }
 
+/**
+ * "Mes de trabajo": el mes en curso mientras queden gastos fijos pendientes; si ya
+ * está TODO pagado, pasa al mes siguiente (para adelantar montos y fechas). Así,
+ * al terminar de pagar, aparecen los del mes que viene sin navegar a mano.
+ */
+export function workingMonth(
+  gastosFijos: GastoFijo[],
+  instancias: VencimientoInstancia[],
+  mes: Mes = MES_ACTUAL,
+): Mes {
+  const hasActive = gastosFijos.some((gf) => gf.activo !== false);
+  if (!hasActive) return mes;
+  const pend = computeVencimientos(gastosFijos, instancias, mes).filter((v) => !v.pagado);
+  return pend.length === 0 ? addMonths(mes, 1) : mes;
+}
+
 /** Primer mes con alguna instancia registrada (para acotar el navegador de meses). */
 export function primerMesConDatos(instancias: VencimientoInstancia[]): Mes | null {
   let min: Mes | null = null;

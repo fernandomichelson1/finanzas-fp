@@ -9,6 +9,7 @@ import {
   balanceDelMes,
   computeVencimientos,
   gastosDelMes,
+  workingMonth,
 } from '@/lib/selectors';
 import { MES_ACTUAL, TODAY, addMonths, daysUntil, fechaCorta, mesLabel, niceDate, saludoDelDia } from '@/lib/date';
 import { fmtARSCompact, fmtMonto, fmtUSD, tipoSign } from '@/lib/format';
@@ -95,14 +96,17 @@ export function DashboardScreen() {
   const ahorro = flujo.ahorro;
   const deltaGastosPct = prev.total > 0 ? ((cur.total - prev.total) / prev.total) * 100 : null;
 
+  // Mes de trabajo: si ya se pagó todo el mes actual, mostramos los del mes que viene.
+  const mesTrabajo = useMemo(() => workingMonth(gastosFijos, instancias), [gastosFijos, instancias]);
+  const esProxMes = mesTrabajo !== MES_ACTUAL;
   const vencimientos = useMemo(
     () =>
-      computeVencimientos(gastosFijos, instancias, MES_ACTUAL)
+      computeVencimientos(gastosFijos, instancias, mesTrabajo)
         .filter((v) => !v.pagado)
         .map((v) => ({ ...v, dr: daysUntil(v.vence) }))
         .filter((v) => v.dr >= -2)
         .sort((a, b) => a.vence.localeCompare(b.vence)),
-    [gastosFijos, instancias],
+    [gastosFijos, instancias, mesTrabajo],
   );
   const totalAVencer = vencimientos.reduce((s, v) => s + v.monto, 0);
 
@@ -264,7 +268,12 @@ export function DashboardScreen() {
       <div className="grid gap-x-6 gap-y-1 lg:grid-cols-3">
         {/* Vencimientos */}
         <section className="mb-4 min-w-0">
-          <SectionHeader title="Próximos a vencerse" subtitle={`${vencimientos.length} pagos · $${fmtMonto(totalAVencer)}`} action="Ver todos" onAction={() => navigate('/vencimientos')} />
+          <SectionHeader
+            title="Próximos a vencerse"
+            subtitle={`${esProxMes ? `Adelantando ${mesLabel(mesTrabajo).split(' ')[0]} · ` : ''}${vencimientos.length} pagos · $${fmtMonto(totalAVencer)}`}
+            action="Ver todos"
+            onAction={() => navigate('/vencimientos')}
+          />
           {vencimientos.length === 0 ? (
             <div className="rounded-2xl border border-line bg-surface px-4 py-6 text-center text-[13px] text-muted">Nada por vencer 🎉</div>
           ) : (

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { GastoFijo, Owner, UserId, VencimientoInstancia, VencimientoRow as VRow } from '@/types/domain';
+import type { Owner, UserId, VencimientoRow as VRow } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
-import { computeVencimientos, usdPagadoDelMes } from '@/lib/selectors';
+import { computeVencimientos, usdPagadoDelMes, workingMonth } from '@/lib/selectors';
 import { MES_ACTUAL, addMonths, mesLabel } from '@/lib/date';
 import { fmtMonto, fmtUSD } from '@/lib/format';
 import { alpha } from '@/lib/color';
@@ -16,19 +16,6 @@ import { GastosFijosTable } from './GastosFijosTable';
 import { PagarSheet, GastoFijoForm, RowMenuSheet, ConfirmDeleteSheet } from './sheets';
 
 type Filter = 'pendientes' | 'pagados' | 'todos' | 'inactivos';
-
-/**
- * "Mes de trabajo": el mes en curso mientras queden gastos fijos pendientes;
- * cuando ya está TODO pagado, pasa solo al mes siguiente para adelantar montos
- * y fechas. Así, al terminar de pagar, aparecen los del mes que viene sin tener
- * que navegar a mano.
- */
-function pickWorkingMonth(gastosFijos: GastoFijo[], instancias: VencimientoInstancia[]): string {
-  const hasActive = gastosFijos.some((gf) => gf.activo !== false);
-  if (!hasActive) return MES_ACTUAL;
-  const pend = computeVencimientos(gastosFijos, instancias, MES_ACTUAL).filter((v) => !v.pagado);
-  return pend.length === 0 ? addMonths(MES_ACTUAL, 1) : MES_ACTUAL;
-}
 
 export function VencimientosScreen() {
   const navigate = useNavigate();
@@ -46,7 +33,7 @@ export function VencimientosScreen() {
 
   const [filter, setFilter] = useState<Filter>('todos');
   const [respFilter, setRespFilter] = useState<Owner | 'todos'>('todos');
-  const [activeMonth, setActiveMonth] = useState<string>(() => pickWorkingMonth(gastosFijos, instancias));
+  const [activeMonth, setActiveMonth] = useState<string>(() => workingMonth(gastosFijos, instancias));
   // Si el usuario navega los meses a mano, dejamos de moverlo automáticamente.
   const [userPicked, setUserPicked] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -58,12 +45,12 @@ export function VencimientosScreen() {
 
   // Mes de trabajo automático: seguimos el mes en curso hasta pagar todo, y ahí
   // saltamos solo al siguiente (salvo que el usuario haya navegado a mano).
-  const workingMonth = useMemo(() => pickWorkingMonth(gastosFijos, instancias), [gastosFijos, instancias]);
+  const mesTrabajo = useMemo(() => workingMonth(gastosFijos, instancias), [gastosFijos, instancias]);
   useEffect(() => {
-    if (!userPicked) setActiveMonth(workingMonth);
-  }, [workingMonth, userPicked]);
+    if (!userPicked) setActiveMonth(mesTrabajo);
+  }, [mesTrabajo, userPicked]);
   // Mostramos el aviso cuando estamos viendo el mes que viene porque ya se pagó todo el actual.
-  const rollover = activeMonth === addMonths(MES_ACTUAL, 1) && workingMonth !== MES_ACTUAL;
+  const rollover = activeMonth === addMonths(MES_ACTUAL, 1) && mesTrabajo !== MES_ACTUAL;
 
   const allVencs = useMemo(
     () =>
