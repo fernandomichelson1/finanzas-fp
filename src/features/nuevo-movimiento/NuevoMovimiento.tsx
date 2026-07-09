@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Caja, MovimientoTipo } from '@/types/domain';
+import type { Caja, CategoriaTipo, MovimientoTipo } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { saldosDeCajas } from '@/lib/selectors';
 import { fmtMonto, formatMiles, parseMoney, tipoSign } from '@/lib/format';
@@ -10,6 +10,9 @@ import { CatIcon } from '@/components/ui/CatIcon';
 import { Icon } from '@/components/ui/icons';
 
 type Tipo = MovimientoTipo;
+
+/** Colores para asignar automáticamente a las categorías nuevas creadas al vuelo. */
+const CAT_PALETTE = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#14B8A6', '#F97316', '#A855F7', '#06B6D4'];
 
 const META: Record<Tipo, { color: string; label: string; sub: string }> = {
   ingreso: { color: '#16A34A', label: 'Ingreso', sub: 'Sueldos, honorarios, ventas' },
@@ -26,6 +29,7 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   const allCajas = useFinanzasStore((s) => s.cajas);
   const movimientos = useFinanzasStore((s) => s.movimientos);
   const createConcepto = useFinanzasStore((s) => s.createConcepto);
+  const createCategory = useFinanzasStore((s) => s.createCategory);
   const addMovimiento = useFinanzasStore((s) => s.addMovimiento);
 
   const [step, setStep] = useState(1);
@@ -38,6 +42,8 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   const [createInCat, setCreateInCat] = useState<string | null>(null);
   const [cajaId, setCajaId] = useState<string | null>(null);
   const [cajaOrigenId, setCajaOrigenId] = useState<string | null>(null);
+  const [creatingCat, setCreatingCat] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
   const [showExtra, setShowExtra] = useState(false);
   const [tagsRaw, setTagsRaw] = useState('');
   const [notas, setNotas] = useState('');
@@ -70,14 +76,25 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   const catIds = new Set(cats.map((c) => c.id));
   const conceptosTipo = conceptos.filter((co) => catIds.has(co.cat));
   const filtered = q ? conceptosTipo.filter((co) => co.nombre.toLowerCase().includes(q)) : conceptosTipo;
+  // Sin búsqueda mostramos TODAS las categorías (aunque no tengan conceptos), para
+  // poder elegir la categoría sola o agregarle conceptos. Con búsqueda, solo las que matchean.
   const grouped = cats
     .map((c) => ({ cat: c, items: filtered.filter((co) => co.cat === c.id) }))
-    .filter((g) => g.items.length > 0);
+    .filter((g) => g.items.length > 0 || !q);
 
   const pickConcepto = (coId: string, coCat: string, coNombre: string) => {
     setConceptoId(coId);
     setCatId(coCat);
     if (!desc) setDesc(coNombre);
+  };
+  // Elegir la categoría sola (sin subcategoría). Vuelve a tocar para deseleccionar.
+  const selectCat = (id: string) => {
+    if (catId === id && !conceptoId) {
+      setCatId(null);
+    } else {
+      setCatId(id);
+      setConceptoId(null);
+    }
   };
   const doCreateConcepto = () => {
     if (!search.trim() || !createInCat) return;
@@ -85,6 +102,17 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
     pickConcepto(co.id, co.cat, co.nombre);
     setSearch('');
     setCreateInCat(null);
+  };
+  const doCreateCategory = () => {
+    const nombre = newCatName.trim();
+    if (!nombre || !tipo) return;
+    const color = CAT_PALETTE[categories.length % CAT_PALETTE.length];
+    const nueva = createCategory({ nombre, tipo: tipo as CategoriaTipo, color, icono: '🏷️', uso: 'eventual' });
+    setCatId(nueva.id);
+    setConceptoId(null);
+    setNewCatName('');
+    setCreatingCat(false);
+    setSearch('');
   };
 
   const submit = () => {
@@ -110,7 +138,8 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   const canSave =
     !!cajaId &&
     (!needsOrigen || (!!cajaOrigenId && cajaOrigenId !== cajaId)) &&
-    (!needsConcepto || !!catId) &&
+    // Categoría opcional: alcanza con elegir categoría/concepto O escribir una descripción.
+    (!needsConcepto || !!catId || !!desc.trim()) &&
     !insuficiente;
 
   const accent = tipo ? META[tipo].color : '#2563EB';
@@ -243,7 +272,57 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
 
             {needsConcepto && (
               <>
-                <div className="mb-1.5 text-[11px] uppercase tracking-wider text-muted">Concepto</div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <div className="text-[11px] uppercase tracking-wider text-muted">
+                    Categoría / concepto <span className="normal-case opacity-70">(opcional)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatingCat(true);
+                      setCreateInCat(null);
+                    }}
+                    className="text-[12px] font-semibold text-accent"
+                  >
+                    + Nueva categoría
+                  </button>
+                </div>
+
+                {creatingCat && (
+                  <div className="mb-2.5 rounded-[14px] border border-dashed border-line-strong bg-surface-2 p-3.5">
+                    <div className="mb-2 text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+                      Nueva categoría de {META[tipo].label.toLowerCase()}
+                    </div>
+                    <input
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && doCreateCategory()}
+                      autoFocus
+                      placeholder="Ej: Salud visual, Mascota, Regalos..."
+                      className="mb-2.5 w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-sm text-text outline-none focus:border-accent"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setCreatingCat(false);
+                          setNewCatName('');
+                        }}
+                        className="flex-1 rounded-[10px] border border-line bg-surface py-2.5 text-[13px] font-medium text-muted"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={doCreateCategory}
+                        disabled={!newCatName.trim()}
+                        className="flex-[2] rounded-[10px] py-2.5 text-[13px] font-semibold"
+                        style={{ background: newCatName.trim() ? '#2563EB' : 'var(--surface)', color: newCatName.trim() ? '#fff' : 'var(--text-muted)' }}
+                      >
+                        Crear categoría
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="mb-2.5 flex items-center gap-2.5 rounded-xl border border-line bg-surface-2 px-3.5 py-2.5">
                   <Icon.search size={18} className="text-muted" />
                   <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Buscar concepto de ${META[tipo].label.toLowerCase()}...`} className="flex-1 bg-transparent text-[14.5px] text-text outline-none" />
@@ -254,14 +333,22 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
                   )}
                 </div>
                 <div className="dash-scroll mb-3 max-h-[220px] overflow-auto rounded-[14px] border border-line bg-surface-2 px-3 py-2.5">
-                  {grouped.map((g) => (
+                  {grouped.map((g) => {
+                    const catSelected = catId === g.cat.id && !conceptoId;
+                    return (
                     <div key={g.cat.id} className="mb-2.5">
-                      <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] uppercase tracking-wide text-muted">
+                      <button
+                        type="button"
+                        onClick={() => selectCat(g.cat.id)}
+                        className="mb-1.5 flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-[10.5px] uppercase tracking-wide transition-colors"
+                        style={{ color: catSelected ? g.cat.color : 'var(--text-muted)', background: catSelected ? alpha(g.cat.color, 0.1) : 'transparent' }}
+                      >
                         <span style={{ color: g.cat.color }}>
                           <CatIcon item={g.cat} size={13} />
                         </span>
                         <span className="font-semibold tracking-wider">{g.cat.nombre}</span>
-                      </div>
+                        {catSelected && <Icon.check size={12} strokeWidth={3} style={{ color: g.cat.color }} />}
+                      </button>
                       <div className="flex flex-wrap gap-1.5">
                         {g.items.map((co) => {
                           const active = conceptoId === co.id;
@@ -281,7 +368,8 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   {grouped.length === 0 && (
                     <div className="px-2 py-3.5 text-center text-[13px] text-muted">
                       {q ? <>Sin coincidencias para "{search}". Elegí una categoría para crearlo.</> : <>Sin conceptos cargados.</>}
