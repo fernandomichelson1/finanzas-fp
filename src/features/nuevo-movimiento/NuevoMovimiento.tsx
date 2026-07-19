@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Caja, CategoriaTipo, MovimientoTipo, UserId, Usuario } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
-import { cajasUsables, saldosDeCajas } from '@/lib/selectors';
+import { cajasConSubcuentas, cajasUsables, saldosDeCajas } from '@/lib/selectors';
 import { fmtMonto, formatMiles, parseMoney, tipoSign } from '@/lib/format';
 import { TODAY } from '@/lib/date';
 import { alpha, shade } from '@/lib/color';
@@ -53,8 +53,12 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
     setStep(1);
   }, []);
 
-  // Cajas usables por el usuario: propias + efectivo compartido, con subcuentas.
-  const userCajas = useMemo(() => cajasUsables(allCajas, currentUser), [allCajas, currentUser]);
+  // Cajas para elegir: en transferencia, TODAS las cuentas de ambos (origen y destino).
+  // En gastos/ingresos/ahorro: las propias + efectivo compartido. Siempre con subcuentas.
+  const userCajas = useMemo(
+    () => (tipo === 'transferencia' ? cajasConSubcuentas(allCajas, () => true) : cajasUsables(allCajas, currentUser)),
+    [allCajas, currentUser, tipo],
+  );
   const montoNum = parseMoney(monto);
   const needsOrigen = tipo === 'transferencia' || tipo === 'ahorro';
   const needsConcepto = tipo === 'ingreso' || tipo === 'gasto' || tipo === 'ahorro';
@@ -511,11 +515,14 @@ function CajaChipRow({ cajas, selectedId, onSelect, excludeId, allCajas, users, 
       {items.map((c) => {
         const sel = selectedId === c.id;
         const parent = c.parent ? allCajas.find((p) => p.id === c.parent) : null;
-        // Pista: subcuenta → cuenta madre; efectivo del otro → "de Fulano".
+        // Pista: de quién es (si es del otro) y/o de qué cuenta madre es (subcuenta).
+        const otro = c.owner !== currentUser ? users[c.owner]?.nombre ?? '' : null;
         const hint = parent
-          ? parent.nombre
-          : c.tipo === 'efectivo' && c.owner !== currentUser
-            ? `de ${users[c.owner]?.nombre ?? ''}`
+          ? otro
+            ? `${parent.nombre} · ${otro}`
+            : parent.nombre
+          : otro
+            ? `de ${otro}`
             : null;
         return (
           <button

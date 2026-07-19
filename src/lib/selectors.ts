@@ -31,14 +31,22 @@ export function totalCuenta(cajas: Caja[], saldos: Record<string, number>, cajaI
 }
 
 /**
- * Cajas que un usuario puede USAR para cargar movimientos: las propias + cualquier
- * caja de tipo efectivo (el efectivo es compartido entre ambos). Ordenadas con cada
- * subcuenta a continuación de su cuenta madre. Excluye archivadas.
+ * Cajas madre + sus subcuentas (un nivel) que cumplen `incluir`, ordenadas con cada
+ * subcuenta a continuación de su cuenta madre. Excluye siempre las archivadas.
+ */
+export function cajasConSubcuentas(cajas: Caja[], incluir: (c: Caja) => boolean): Caja[] {
+  const ok = (c: Caja) => !c.archivada && incluir(c);
+  const top = cajas.filter((c) => !c.parent && ok(c));
+  return top.flatMap((p) => [p, ...cajas.filter((c) => c.parent === p.id && ok(c))]);
+}
+
+/**
+ * Cajas que un usuario puede USAR para cargar gastos/ingresos: las propias + cualquier
+ * caja de tipo efectivo (el efectivo es compartido entre ambos). Para transferencias se
+ * usan TODAS las cuentas (ver `cajasConSubcuentas(cajas, () => true)`).
  */
 export function cajasUsables(cajas: Caja[], userId: UserId): Caja[] {
-  const usable = (c: Caja) => !c.archivada && (c.owner === userId || c.tipo === 'efectivo');
-  const top = cajas.filter((c) => !c.parent && usable(c));
-  return top.flatMap((p) => [p, ...cajas.filter((c) => c.parent === p.id && usable(c))]);
+  return cajasConSubcuentas(cajas, (c) => c.owner === userId || c.tipo === 'efectivo');
 }
 
 /** Saldo de cada caja = saldo_inicial + ingresos − gastos ± transferencias/ahorros. */
