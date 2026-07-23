@@ -50,10 +50,11 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
   const cajas = useMemo(() => cajasUsables(allCajas, currentUser), [allCajas, currentUser]);
   const pagarVencimiento = useFinanzasStore((s) => s.pagarVencimiento);
   const updateInstancia = useFinanzasStore((s) => s.updateInstancia);
+  const updateGastoFijo = useFinanzasStore((s) => s.updateGastoFijo);
   const setGastoFijoOwnerFrom = useFinanzasStore((s) => s.setGastoFijoOwnerFrom);
   const [sel, setSel] = useState<string | null>(cajas[0]?.id ?? null);
   const [monto, setMonto] = useState(moneyToInput(venc.monto));
-  const [dia, setDia] = useState(String(Number(venc.vence.split('-')[2])));
+  const [dia, setDia] = useState(String(venc.diaVenc));
   const [owner, setOwner] = useState<Owner>(venc.owner);
   const c = useCatById(venc.cat) ?? FALLBACK;
 
@@ -63,18 +64,24 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
   const selCaja = allCajas.find((ca) => ca.id === sel) ?? null;
   const selSaldo = sel ? saldos[sel] ?? 0 : 0;
   const insuficiente = !!sel && parseMonto() > selSaldo + 0.005;
-  const fechaISO = () => `${venc.mes}-${String(Math.max(1, Math.min(31, Number(dia) || 1))).padStart(2, '0')}`;
+  // Si cambiaste el día de vencimiento, se actualiza el día fijo del gasto (recurrente).
+  const applyDia = () => {
+    const d = Math.max(1, Math.min(31, Number(dia) || venc.diaVenc));
+    if (d !== venc.diaVenc) updateGastoFijo(venc.gfId, { diaVenc: d });
+  };
   const applyOwner = (o: Owner) => {
     setOwner(o);
     if (o !== venc.owner) setGastoFijoOwnerFrom(venc.gfId, venc.mes, o);
   };
   const guardar = () => {
-    updateInstancia(venc.gfId, venc.mes, { monto: parseMonto(), fecha: fechaISO() });
+    updateInstancia(venc.gfId, venc.mes, { monto: parseMonto() });
+    applyDia();
     onClose();
   };
   const pagar = () => {
     if (!sel || insuficiente) return;
-    pagarVencimiento({ ...venc, monto: parseMonto(), vence: fechaISO() }, sel);
+    applyDia();
+    pagarVencimiento({ ...venc, monto: parseMonto() }, sel);
     onClose();
   };
 
@@ -175,7 +182,7 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
             <Icon.check size={16} strokeWidth={3} /> Confirmar pago
           </button>
         </div>
-        <div className="mt-2 text-center text-[11px] text-muted">El pago se registra con la fecha de hoy. El “Día” es solo el vencimiento.</div>
+        <div className="mt-2 text-center text-[11px] text-muted">El pago se registra con la fecha de hoy. El “Día venc.” es el día fijo del gasto (queda para todos los meses).</div>
       </div>
     </AdaptiveDialog>
   );

@@ -24,7 +24,7 @@ export function VencimientoRow({
   editing: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
-  onSaveEdit: (payload: { monto: number; fecha: string }) => void;
+  onSaveEdit: (payload: { monto: number; diaVenc: number }) => void;
   onPagar: () => void;
   onUnpagar: () => void;
   onMenu: () => void;
@@ -101,7 +101,7 @@ export function VencimientoRow({
           <div>
             <div
               className="whitespace-nowrap text-[14.5px] font-bold tabular-nums tracking-[-0.3px]"
-              style={{ color: v.prefilled && !v.pagado ? 'var(--text-muted)' : 'var(--text)' }}
+              style={{ color: v.pagado ? 'var(--text)' : v.prefilled ? 'var(--text-muted)' : '#22C55E' }}
             >
               ${fmtMonto(v.monto)}
             </div>
@@ -164,14 +164,14 @@ function EditRow({
   v: VRow;
   color: string;
   onCancel: () => void;
-  onSave: (payload: { monto: number; fecha: string }) => void;
+  onSave: (payload: { monto: number; diaVenc: number }) => void;
 }) {
   const [monto, setMonto] = useState(moneyToInput(v.monto));
-  const [dia, setDia] = useState(String(Number(v.vence.split('-')[2])));
+  const [dia, setDia] = useState(String(v.diaVenc));
 
   const submit = () => {
-    const d = Math.max(1, Math.min(31, Number(dia) || 1));
-    onSave({ monto: parseMoney(monto), fecha: `${v.mes}-${String(d).padStart(2, '0')}` });
+    const d = Math.max(1, Math.min(31, Number(dia) || v.diaVenc));
+    onSave({ monto: parseMoney(monto), diaVenc: d });
   };
 
   return (
@@ -180,7 +180,7 @@ function EditRow({
       style={{ border: `1px solid ${alpha(color, 0.33)}`, boxShadow: `0 0 0 3px ${alpha(color, 0.09)}` }}
     >
       <div className="mb-3 text-[13.5px] font-semibold text-text">
-        {v.nombre} <span className="text-[11px] font-normal text-muted">· editar mes actual</span>
+        {v.nombre} <span className="text-[11px] font-normal text-muted">· monto de este mes · día fijo</span>
       </div>
       <div className="mb-2.5 grid grid-cols-[2fr_1fr] gap-2.5">
         <label className="block">
@@ -196,7 +196,7 @@ function EditRow({
           </div>
         </label>
         <label className="block">
-          <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-muted">Día</div>
+          <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-muted">Día venc.</div>
           <input
             type="number"
             min={1}

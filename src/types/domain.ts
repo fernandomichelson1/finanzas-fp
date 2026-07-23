@@ -111,8 +111,10 @@ export interface VencimientoInstancia {
   gfId: string;
   mes: Mes;
   monto?: number;
+  /** Legacy: antes guardaba el vencimiento; ya no se usa (el vencimiento sale de `gf.diaVenc`). */
   fecha?: ISODate;
   pagado?: boolean;
+  /** Día en que efectivamente se pagó (independiente del vencimiento). */
   pagadoFecha?: ISODate;
   pagadoMovId?: string;
   /** Dólar blue (ARS/USD) del día del pago, para acumular el mes en USD. */

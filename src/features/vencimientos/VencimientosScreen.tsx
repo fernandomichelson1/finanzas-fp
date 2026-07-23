@@ -243,9 +243,11 @@ export function VencimientosScreen() {
           ) : isDesktop ? (
             <GastosFijosTable
               rows={visibles}
-              onCommit={(gfId, mes, monto, dia) =>
-                updateInstancia(gfId, mes, { monto, fecha: `${mes}-${String(dia).padStart(2, '0')}` })
-              }
+              onCommit={(gfId, mes, monto, dia) => {
+                updateInstancia(gfId, mes, { monto });
+                const gf = gastosFijos.find((g) => g.id === gfId);
+                if (gf && dia !== gf.diaVenc) updateGastoFijo(gfId, { diaVenc: dia });
+              }}
               onPagar={(v) => setPayingFor(v)}
               onUnpagar={(v) => unpagarVencimiento(v.gfId, v.mes)}
               onMenu={(v) => setMenuFor(v)}
@@ -260,7 +262,8 @@ export function VencimientosScreen() {
                   onEdit={() => setEditingId(v.id)}
                   onCancelEdit={() => setEditingId(null)}
                   onSaveEdit={(payload) => {
-                    updateInstancia(v.gfId, v.mes, payload);
+                    updateInstancia(v.gfId, v.mes, { monto: payload.monto });
+                    if (payload.diaVenc !== v.diaVenc) updateGastoFijo(v.gfId, { diaVenc: payload.diaVenc });
                     setEditingId(null);
                   }}
                   onPagar={() => setPayingFor(v)}

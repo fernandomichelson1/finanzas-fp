@@ -155,8 +155,9 @@ export const useFinanzasStore = create<FinanzasStore>()(
 
           let instancias = s.instancias;
           if ((prev.tags ?? []).includes('gasto-fijo')) {
+            // La fecha del movimiento es la de PAGO (no el vencimiento) → sincroniza pagadoFecha.
             instancias = s.instancias.map((inst) =>
-              inst.pagadoMovId === id ? { ...inst, monto: next.monto, fecha: next.fecha } : inst,
+              inst.pagadoMovId === id ? { ...inst, monto: next.monto, pagadoFecha: next.fecha } : inst,
             );
           }
 
@@ -360,7 +361,6 @@ export const useFinanzasStore = create<FinanzasStore>()(
             gfId: venc.gfId,
             mes: venc.mes,
             monto: venc.monto,
-            fecha: venc.vence,
             pagado: true,
             pagadoFecha: TODAY,
             pagadoMovId: movId,

@@ -55,13 +55,13 @@ function Row({
 }) {
   const cat = useCatById(v.cat) ?? FALLBACK;
   const [monto, setMonto] = useState(moneyToInput(v.monto));
-  const [dia, setDia] = useState(String(Number(v.vence.split('-')[2])));
+  const [dia, setDia] = useState(String(v.diaVenc));
 
   // Resincroniza si cambia desde afuera (otro pago, sync de Pao, etc.)
   useEffect(() => {
     setMonto(moneyToInput(v.monto));
-    setDia(String(Number(v.vence.split('-')[2])));
-  }, [v.monto, v.vence]);
+    setDia(String(v.diaVenc));
+  }, [v.monto, v.diaVenc]);
 
   const commit = () => {
     const d = Math.max(1, Math.min(31, Number(dia) || 1));
@@ -123,7 +123,7 @@ function Row({
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           className="w-full rounded-lg border bg-surface-2 py-1.5 pl-6 pr-2 text-right text-[13.5px] font-semibold tabular-nums outline-none focus:border-accent disabled:opacity-60"
           style={{
-            color: v.prefilled && !v.pagado ? 'var(--text-muted)' : 'var(--text)',
+            color: v.pagado ? 'var(--text)' : v.prefilled ? 'var(--text-muted)' : '#22C55E',
             borderColor: v.prefilled && !v.pagado ? 'var(--border-strong)' : 'var(--border)',
             borderStyle: v.prefilled && !v.pagado ? 'dashed' : 'solid',
           }}
