@@ -262,8 +262,15 @@ export function VencimientosScreen() {
                   onEdit={() => setEditingId(v.id)}
                   onCancelEdit={() => setEditingId(null)}
                   onSaveEdit={(payload) => {
-                    updateInstancia(v.gfId, v.mes, { monto: payload.monto });
-                    if (payload.diaVenc !== v.diaVenc) updateGastoFijo(v.gfId, { diaVenc: payload.diaVenc });
+                    // "Solo este mes" → override en la instancia. "Todos los meses" → día fijo
+                    // del gasto (y se limpia cualquier override previo de este mes).
+                    updateInstancia(v.gfId, v.mes, {
+                      monto: payload.monto,
+                      venceDia: payload.soloEsteMes ? payload.dia : undefined,
+                    });
+                    if (!payload.soloEsteMes && payload.dia !== v.diaVenc) {
+                      updateGastoFijo(v.gfId, { diaVenc: payload.dia });
+                    }
                     setEditingId(null);
                   }}
                   onPagar={() => setPayingFor(v)}

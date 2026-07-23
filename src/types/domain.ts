@@ -113,6 +113,8 @@ export interface VencimientoInstancia {
   monto?: number;
   /** Legacy: antes guardaba el vencimiento; ya no se usa (el vencimiento sale de `gf.diaVenc`). */
   fecha?: ISODate;
+  /** Override del día de vencimiento SOLO para este mes (excepción del `gf.diaVenc` fijo). */
+  venceDia?: number;
   pagado?: boolean;
   /** Día en que efectivamente se pagó (independiente del vencimiento). */
   pagadoFecha?: ISODate;

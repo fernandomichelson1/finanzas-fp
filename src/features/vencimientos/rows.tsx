@@ -24,7 +24,7 @@ export function VencimientoRow({
   editing: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
-  onSaveEdit: (payload: { monto: number; diaVenc: number }) => void;
+  onSaveEdit: (payload: { monto: number; dia: number; soloEsteMes: boolean }) => void;
   onPagar: () => void;
   onUnpagar: () => void;
   onMenu: () => void;
@@ -164,14 +164,16 @@ function EditRow({
   v: VRow;
   color: string;
   onCancel: () => void;
-  onSave: (payload: { monto: number; diaVenc: number }) => void;
+  onSave: (payload: { monto: number; dia: number; soloEsteMes: boolean }) => void;
 }) {
   const [monto, setMonto] = useState(moneyToInput(v.monto));
-  const [dia, setDia] = useState(String(v.diaVenc));
+  // Día efectivo de ESTE mes (puede ser el fijo del gasto o un override del mes).
+  const [dia, setDia] = useState(String(Number(v.vence.split('-')[2])));
+  const [soloEsteMes, setSoloEsteMes] = useState(false);
 
   const submit = () => {
     const d = Math.max(1, Math.min(31, Number(dia) || v.diaVenc));
-    onSave({ monto: parseMoney(monto), diaVenc: d });
+    onSave({ monto: parseMoney(monto), dia: d, soloEsteMes });
   };
 
   return (
@@ -207,6 +209,34 @@ function EditRow({
           />
         </label>
       </div>
+      {/* Alcance del día de vencimiento */}
+      <div className="mb-2.5">
+        <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-muted">El día vence</div>
+        <div className="flex gap-1.5">
+          {[
+            { solo: false, label: 'Todos los meses' },
+            { solo: true, label: 'Solo este mes' },
+          ].map((o) => {
+            const active = soloEsteMes === o.solo;
+            return (
+              <button
+                key={o.label}
+                type="button"
+                onClick={() => setSoloEsteMes(o.solo)}
+                className="flex-1 rounded-[10px] py-2 text-[12px] font-semibold"
+                style={{
+                  background: active ? alpha(color, 0.15) : 'var(--surface-2)',
+                  color: active ? color : 'var(--text-muted)',
+                  border: `1px solid ${active ? color : 'var(--border)'}`,
+                }}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="flex gap-2">
         <button onClick={onCancel} className="flex-1 rounded-[10px] border border-line bg-surface-2 py-2.5 text-[13px] font-medium text-muted">
           Cancelar

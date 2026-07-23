@@ -54,7 +54,9 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
   const setGastoFijoOwnerFrom = useFinanzasStore((s) => s.setGastoFijoOwnerFrom);
   const [sel, setSel] = useState<string | null>(cajas[0]?.id ?? null);
   const [monto, setMonto] = useState(moneyToInput(venc.monto));
-  const [dia, setDia] = useState(String(venc.diaVenc));
+  // Día efectivo de ESTE mes (el fijo del gasto o el override del mes).
+  const [dia, setDia] = useState(String(Number(venc.vence.split('-')[2])));
+  const [soloEsteMes, setSoloEsteMes] = useState(false);
   const [owner, setOwner] = useState<Owner>(venc.owner);
   const c = useCatById(venc.cat) ?? FALLBACK;
 
@@ -64,10 +66,14 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
   const selCaja = allCajas.find((ca) => ca.id === sel) ?? null;
   const selSaldo = sel ? saldos[sel] ?? 0 : 0;
   const insuficiente = !!sel && parseMonto() > selSaldo + 0.005;
-  // Si cambiaste el día de vencimiento, se actualiza el día fijo del gasto (recurrente).
+  // "Solo este mes" → override en la instancia; si no, cambia el día fijo del gasto.
   const applyDia = () => {
     const d = Math.max(1, Math.min(31, Number(dia) || venc.diaVenc));
-    if (d !== venc.diaVenc) updateGastoFijo(venc.gfId, { diaVenc: d });
+    if (soloEsteMes) {
+      updateInstancia(venc.gfId, venc.mes, { venceDia: d });
+    } else if (d !== venc.diaVenc) {
+      updateGastoFijo(venc.gfId, { diaVenc: d });
+    }
   };
   const applyOwner = (o: Owner) => {
     setOwner(o);
@@ -111,6 +117,34 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Día venc.</div>
             <input type="number" min={1} max={31} value={dia} onChange={(e) => setDia(e.target.value)} className="w-full rounded-xl border border-line bg-surface px-2.5 py-3 text-center text-[17px] font-semibold tabular-nums text-text outline-none focus:border-accent" />
           </label>
+        </div>
+
+        {/* Alcance del día de vencimiento */}
+        <div className="mb-3.5">
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">El día vence</div>
+          <div className="flex gap-1.5">
+            {[
+              { solo: false, label: 'Todos los meses' },
+              { solo: true, label: 'Solo este mes' },
+            ].map((o) => {
+              const active = soloEsteMes === o.solo;
+              return (
+                <button
+                  key={o.label}
+                  type="button"
+                  onClick={() => setSoloEsteMes(o.solo)}
+                  className="flex-1 rounded-[10px] py-2.5 text-[12.5px] font-semibold"
+                  style={{
+                    background: active ? alpha('#3B82F6', 0.15) : 'var(--surface)',
+                    color: active ? '#3B82F6' : 'var(--text-muted)',
+                    border: `1px solid ${active ? '#3B82F6' : 'var(--border)'}`,
+                  }}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Responsable (se aplica al tocar) */}
@@ -182,7 +216,7 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
             <Icon.check size={16} strokeWidth={3} /> Confirmar pago
           </button>
         </div>
-        <div className="mt-2 text-center text-[11px] text-muted">El pago se registra con la fecha de hoy. El “Día venc.” es el día fijo del gasto (queda para todos los meses).</div>
+        <div className="mt-2 text-center text-[11px] text-muted">El pago se registra con la fecha de hoy. El “Día venc.” no cambia por pagar: queda fijo para todos los meses, salvo que elijas “Solo este mes”.</div>
       </div>
     </AdaptiveDialog>
   );

@@ -300,9 +300,9 @@ export function computeVencimientos(
         : insts
             .filter((i) => i.gfId === gf.id && i.mes < mes && i.monto != null)
             .sort((a, b) => b.mes.localeCompare(a.mes))[0];
-      // El vencimiento SIEMPRE sale del día fijo del gasto (gf.diaVenc). NO se toca
-      // por la fecha de pago. Se cambia editando el día (actualiza gf.diaVenc).
-      const diaClamp = Math.min(gf.diaVenc, daysInMonth(y, m));
+      // Vencimiento: día fijo del gasto (gf.diaVenc), salvo que ESTE mes tenga un
+      // override propio (inst.venceDia). NUNCA se toca por la fecha de pago.
+      const diaClamp = Math.min(inst?.venceDia ?? gf.diaVenc, daysInMonth(y, m));
       const fecha = `${mes}-${String(diaClamp).padStart(2, '0')}`;
       const monto = inst?.monto ?? prior?.monto ?? gf.montoSugerido ?? 0;
       return {
