@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { VENCIMIENTOS_PATH } from '@/navigation/routes';
 import { MobileShell } from './MobileShell';
 import { DesktopShell } from './DesktopShell';
@@ -47,6 +48,7 @@ function AppRoutes() {
 /** Selecciona el chrome según breakpoint y monta diálogo de alta + toasts. */
 export function AppShell() {
   const bp = useBreakpoint();
+  const nuevoMovCaja = useFinanzasStore((s) => s.nuevoMovCaja);
   const [dialogOpen, setDialogOpen] = useState(false);
   const openDialog = () => setDialogOpen(true);
   const content = <AppRoutes />;
@@ -83,7 +85,7 @@ export function AppShell() {
       )}
 
       <AdaptiveDialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
-        <NuevoMovimiento onClose={() => setDialogOpen(false)} />
+        <NuevoMovimiento onClose={() => setDialogOpen(false)} presetCajaId={nuevoMovCaja} />
       </AdaptiveDialog>
 
       <ToastHost />

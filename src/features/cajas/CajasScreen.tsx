@@ -31,9 +31,17 @@ export function CajasScreen() {
   const updateCaja = useFinanzasStore((s) => s.updateCaja);
   const archiveCaja = useFinanzasStore((s) => s.archiveCaja);
   const addMovimiento = useFinanzasStore((s) => s.addMovimiento);
+  const setNuevoMovCaja = useFinanzasStore((s) => s.setNuevoMovCaja);
 
   const [view, setView] = useState<'overview' | 'detail' | 'create' | 'edit'>('overview');
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Mientras mirás el detalle de una cuenta, el "+" (alta de movimiento) queda
+  // apuntado a esa cuenta. Al salir del detalle o de la pantalla, se limpia.
+  useEffect(() => {
+    setNuevoMovCaja(view === 'detail' ? activeId : null);
+    return () => setNuevoMovCaja(null);
+  }, [view, activeId, setNuevoMovCaja]);
 
   const saldos = useMemo(() => saldosDeCajas(cajas, movimientos), [cajas, movimientos]);
   const otherUser = currentUser === 'fer' ? 'pao' : 'fer';

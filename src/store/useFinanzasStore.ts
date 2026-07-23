@@ -39,6 +39,8 @@ interface UiState {
   notifSeen: string[];
   /** True una vez que se "sembró" el historial como leído (para no spamear notificaciones viejas). */
   notifInit: boolean;
+  /** Caja "en contexto" (si estás viendo el detalle de una cuenta) para prellenar el alta. Transitorio. */
+  nuevoMovCaja: string | null;
 }
 
 interface Actions {
@@ -104,6 +106,7 @@ interface Actions {
   clearToast: () => void;
   markNotifsSeen: (ids: string[]) => void;
   seedNotifsIfNeeded: () => void;
+  setNuevoMovCaja: (id: string | null) => void;
   setUsdRate: (rate: number) => void;
   setUsdBlue: (venta: number, fecha: string) => void;
 
@@ -125,6 +128,7 @@ export const useFinanzasStore = create<FinanzasStore>()(
       usdRate: 1400,
       notifSeen: [],
       notifInit: false,
+      nuevoMovCaja: null,
 
       // ── sesión ──
       login: (id) => set({ loggedIn: true, currentUser: id }),
@@ -353,6 +357,7 @@ export const useFinanzasStore = create<FinanzasStore>()(
           if (s.notifInit) return s;
           return { notifInit: true, notifSeen: s.movimientos.map((m) => m.id).slice(0, 800) };
         }),
+      setNuevoMovCaja: (id) => set({ nuevoMovCaja: id }),
       setUsdRate: (rate) => set({ usdRate: rate > 0 ? rate : 1, usdManual: true }),
       setUsdBlue: (venta, fecha) =>
         set({ usdRate: venta > 0 ? venta : 1, usdFecha: fecha, usdManual: false }),
@@ -363,8 +368,8 @@ export const useFinanzasStore = create<FinanzasStore>()(
     {
       name: STORAGE_KEY,
       version: 2,
-      // No persistimos el toast (transitorio).
-      partialize: ({ toast: _toast, ...rest }) => rest,
+      // No persistimos lo transitorio (toast + caja en contexto del alta).
+      partialize: ({ toast: _toast, nuevoMovCaja: _nmc, ...rest }) => rest,
       // Normaliza + migra (reimport v3) al rehidratar. Forzamos el dataVersion del
       // dato GUARDADO (no el de los seeds) para que la migración corra en datos viejos.
       merge: (persisted, current) => {

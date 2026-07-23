@@ -67,6 +67,8 @@ export function DashboardScreen() {
   const [payingFor, setPayingFor] = useState<VencimientoRow | null>(null);
   const [showBell, setShowBell] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  // Categoría cuyos gastos del mes se están mostrando (al tocar una alerta de meta).
+  const [catGastos, setCatGastos] = useState<string | null>(null);
   // Notificaciones que se muestran mientras la campanita está abierta (snapshot,
   // para que no desaparezcan de golpe al marcarlas leídas).
   const [notifShown, setNotifShown] = useState<Movimiento[]>([]);
@@ -145,6 +147,20 @@ export function DashboardScreen() {
     setShowBell(true);
     if (unread.length) markNotifsSeen(unread.map((m) => m.id));
   };
+
+  // Al tocar una alerta de meta: mostramos TODOS los gastos del mes de esa categoría
+  // (de los dos), ordenados por fecha/hora (más reciente primero).
+  const openCatGastos = (catId: string) => {
+    setShowBell(false);
+    setCatGastos(catId);
+  };
+  const catGastoMovs = useMemo(() => {
+    if (!catGastos) return [];
+    return movimientos
+      .filter((m) => m.tipo === 'gasto' && m.cat === catGastos && m.fecha.startsWith(MES_ACTUAL))
+      .slice()
+      .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
+  }, [movimientos, catGastos]);
 
   const onPickPhoto = (file?: File) => {
     if (file) fileToAvatar(file, (uri) => updateUser(currentUser, { foto: uri }));
@@ -243,7 +259,7 @@ export function DashboardScreen() {
             return (
               <button
                 key={a.cat}
-                onClick={openBell}
+                onClick={() => openCatGastos(a.cat)}
                 className="flex items-center gap-3 rounded-[14px] p-3 text-left"
                 style={{ background: `linear-gradient(135deg, ${alpha(color, 0.13)} 0%, ${alpha(color, 0.03)} 100%)`, border: `1px solid ${alpha(color, 0.27)}` }}
               >
@@ -402,20 +418,20 @@ export function DashboardScreen() {
                   );
                 })}
 
-                {/* Alertas de metas (condiciones vivas, quedan mientras se sostengan) */}
+                {/* Alertas de metas: tocá para ver los gastos de esa categoría */}
                 {alerts.map((a) => {
                   const c = catById(a.cat);
                   const color = a.type === 'red' ? '#DC2626' : '#F59E0B';
                   return (
-                    <div key={a.cat} className="flex items-start gap-3 rounded-[14px] p-3" style={{ background: `linear-gradient(135deg, ${alpha(color, 0.13)} 0%, ${alpha(color, 0.03)} 100%)`, border: `1px solid ${alpha(color, 0.27)}` }}>
+                    <button key={a.cat} onClick={() => openCatGastos(a.cat)} className="flex w-full items-start gap-3 rounded-[14px] p-3 text-left" style={{ background: `linear-gradient(135deg, ${alpha(color, 0.13)} 0%, ${alpha(color, 0.03)} 100%)`, border: `1px solid ${alpha(color, 0.27)}` }}>
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]" style={{ background: alpha(color, 0.13), color }}><Icon.warn size={16} /></div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[13.5px] font-semibold text-text">
                           {a.type === 'red' ? `Superaste el límite de ${c?.nombre ?? a.cat}` : `Ya usaste el ${Math.round(a.pct * 100)}% en ${c?.nombre ?? a.cat}`}
                         </div>
-                        <div className="mt-0.5 text-[11.5px] tabular-nums text-muted">${fmtMonto(a.used)} / ${fmtMonto(a.lim)}</div>
+                        <div className="mt-0.5 text-[11.5px] tabular-nums text-muted">${fmtMonto(a.used)} / ${fmtMonto(a.lim)} · ver gastos →</div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -426,6 +442,48 @@ export function DashboardScreen() {
           </div>
         </AdaptiveDialog>
       )}
+
+      {/* Gastos de una categoría (al tocar una alerta de meta) */}
+      {catGastos && (() => {
+        const c = catById(catGastos);
+        const color = c?.color ?? '#DC2626';
+        const lim = metas[catGastos];
+        const used = cur.porCategoria[catGastos] ?? 0;
+        return (
+          <AdaptiveDialog open onClose={() => setCatGastos(null)}>
+            <div className="p-[18px]">
+              <div className="mb-3 flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background: alpha(color, 0.13), color }}>
+                  {c ? <CatIcon item={c} size={24} /> : <Icon.warn size={20} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="m-0 text-lg font-bold tracking-[-0.3px] text-text">{c?.nombre ?? 'Categoría'}</h2>
+                  <div className="text-[11.5px] text-muted">Gastos de {mesLabel(MES_ACTUAL)}</div>
+                </div>
+                <button onClick={() => setCatGastos(null)} aria-label="Cerrar" className="flex h-9 w-9 items-center justify-center rounded-xl text-text hover:bg-surface-2"><Icon.close size={18} /></button>
+              </div>
+
+              <div className="mb-3 flex items-center justify-between rounded-[14px] p-3" style={{ background: alpha(color, 0.1), border: `1px solid ${alpha(color, 0.27)}` }}>
+                <div className="text-[12px] font-semibold uppercase tracking-wide text-muted">Total del mes</div>
+                <div className="text-right">
+                  <div className="text-[17px] font-bold tabular-nums text-text">${fmtMonto(used)}</div>
+                  {lim ? <div className="text-[11px] tabular-nums text-muted">de ${fmtMonto(lim)} · {Math.round((used / lim) * 100)}%</div> : null}
+                </div>
+              </div>
+
+              {catGastoMovs.length === 0 ? (
+                <div className="rounded-2xl border border-line bg-surface px-4 py-8 text-center text-[13px] text-muted">Sin gastos en esta categoría este mes.</div>
+              ) : (
+                <div className="max-h-[52vh] overflow-y-auto overscroll-contain rounded-[18px] border border-line bg-surface">
+                  {catGastoMovs.map((m, i) => (
+                    <MovRow key={m.id} mov={m} isLast={i === catGastoMovs.length - 1} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </AdaptiveDialog>
+        );
+      })()}
 
       {/* Perfil */}
       {showProfile && (

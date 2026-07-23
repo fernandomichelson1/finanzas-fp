@@ -22,7 +22,7 @@ const META: Record<Tipo, { color: string; label: string; sub: string }> = {
   retencion: { color: '#64748B', label: 'Retención / Impuesto', sub: 'IIBB, ganancias, etc.' },
 };
 
-export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
+export function NuevoMovimiento({ onClose, presetCajaId }: { onClose: () => void; presetCajaId?: string | null }) {
   const currentUser = useFinanzasStore((s) => s.currentUser);
   const users = useFinanzasStore((s) => s.users);
   const categories = useFinanzasStore((s) => s.categories);
@@ -41,7 +41,11 @@ export function NuevoMovimiento({ onClose }: { onClose: () => void }) {
   const [conceptoId, setConceptoId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [createInCat, setCreateInCat] = useState<string | null>(null);
-  const [cajaId, setCajaId] = useState<string | null>(null);
+  // Si venís del detalle de una cuenta, arranca con esa caja elegida (si podés usarla).
+  const [cajaId, setCajaId] = useState<string | null>(() => {
+    const c = allCajas.find((x) => x.id === presetCajaId);
+    return c && (c.owner === currentUser || c.tipo === 'efectivo') ? c.id : null;
+  });
   const [cajaOrigenId, setCajaOrigenId] = useState<string | null>(null);
   const [creatingCat, setCreatingCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
