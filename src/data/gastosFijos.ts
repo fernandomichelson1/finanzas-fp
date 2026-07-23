@@ -9,7 +9,7 @@ export const GASTOS_FIJOS_SEED: GastoFijo[] = [
   { id: 'gf-tc-sant-amex', nombre: 'Tarjeta Santander Amex', cat: 'tc', diaVenc: 3, montoSugerido: 5700, activo: true, owner: 'fer' },
   { id: 'gf-tc-banco-pao', nombre: 'Tarjeta BanCo Visa (Pao)', cat: 'tc', diaVenc: 5, montoSugerido: 259704.61, activo: true, owner: 'fer' },
   { id: 'gf-alquiler-lm', nombre: 'Alquiler (La Manzana)', cat: 'viv', diaVenc: 10, montoSugerido: 914100, activo: true, owner: 'fer' },
-  { id: 'gf-colegio-sal', nombre: 'Colegio Salesiano', cat: 'edu', diaVenc: 2, montoSugerido: 66690, activo: true, owner: 'fer' },
+  { id: 'gf-colegio-sal', nombre: 'Colegio Salesiano', cat: 'edu', diaVenc: 10, montoSugerido: 66690, activo: true, owner: 'fer' },
   { id: 'gf-expensas-lm', nombre: 'Expensas (La Manzana)', cat: 'viv', diaVenc: 10, montoSugerido: 212688.66, activo: true, owner: 'fer' },
   { id: 'gf-cable', nombre: 'Cablevisión', cat: 'serv', diaVenc: 1, montoSugerido: 100450.32, activo: true, owner: 'fer' },
   { id: 'gf-seg-moto', nombre: 'Seguro La Segunda (Moto)', cat: 'seg', diaVenc: 1, montoSugerido: 11708.44, activo: true, owner: 'fer' },
