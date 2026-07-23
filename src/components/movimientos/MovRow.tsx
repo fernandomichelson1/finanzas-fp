@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import type { Movimiento } from '@/types/domain';
 import { fmtMonto, tipoColor, tipoSign } from '@/lib/format';
 import { niceDate } from '@/lib/date';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
+import { MovEditSheet } from '@/components/movimientos/MovEditSheet';
 import { useCajaById, useCatById, useUserById } from '@/store/lookups';
 
 interface MovRowProps {
   mov: Movimiento;
   isLast?: boolean;
+  /** Acción al tocar la fila. Si no se pasa, por defecto abre la edición del movimiento. */
   onClick?: () => void;
   showTags?: boolean;
 }
@@ -17,6 +20,7 @@ export function MovRow({ mov, isLast, onClick, showTags = false }: MovRowProps) 
   const u = useUserById(mov.user);
   const caja = useCajaById(mov.caja);
   const cajaOri = useCajaById(mov.caja_origen);
+  const [editing, setEditing] = useState(false);
 
   const color = tipoColor(mov.tipo);
   const c = catReal ?? {
@@ -24,13 +28,15 @@ export function MovRow({ mov, isLast, onClick, showTags = false }: MovRowProps) 
     icono: mov.tipo === 'transferencia' ? '↔' : '•',
     nombre: mov.tipo,
   };
+  const handleClick = onClick ?? (() => setEditing(true));
 
   return (
+    <>
     <div
-      onClick={onClick}
+      onClick={handleClick}
       className="relative flex items-center gap-3 px-3.5 py-3 transition-colors"
       style={{
-        cursor: onClick ? 'pointer' : 'default',
+        cursor: 'pointer',
         borderBottom: isLast ? 'none' : '1px solid var(--border)',
       }}
     >
@@ -89,5 +95,7 @@ export function MovRow({ mov, isLast, onClick, showTags = false }: MovRowProps) 
         </div>
       </div>
     </div>
+    {editing && <MovEditSheet mov={mov} onClose={() => setEditing(false)} />}
+    </>
   );
 }

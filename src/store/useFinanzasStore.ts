@@ -51,6 +51,8 @@ interface Actions {
 
   // movimientos
   addMovimiento: (mov: Movimiento) => void;
+  updateMovimiento: (id: string, patch: Partial<Movimiento>) => void;
+  deleteMovimiento: (id: string) => void;
 
   // conceptos / categorías / usuarios
   createConcepto: (input: { nombre: string; cat: string }) => Concepto;
@@ -140,6 +142,59 @@ export const useFinanzasStore = create<FinanzasStore>()(
         set((s) => {
           const m = { ...mov, usdRate: mov.usdRate ?? s.usdRate };
           return { movimientos: [m, ...s.movimientos], toast: m };
+        }),
+
+      // Editar un movimiento. Sincroniza los casos vinculados: si es el pago de un
+      // gasto fijo, actualiza su instancia; si es un aporte, ajusta el objetivo.
+      updateMovimiento: (id, patch) =>
+        set((s) => {
+          const prev = s.movimientos.find((m) => m.id === id);
+          if (!prev) return s;
+          const next = { ...prev, ...patch };
+          const movimientos = s.movimientos.map((m) => (m.id === id ? next : m));
+
+          let instancias = s.instancias;
+          if ((prev.tags ?? []).includes('gasto-fijo')) {
+            instancias = s.instancias.map((inst) =>
+              inst.pagadoMovId === id ? { ...inst, monto: next.monto, fecha: next.fecha } : inst,
+            );
+          }
+
+          let objetivos = s.objetivos;
+          if (prev.tipo === 'ahorro' && prev.cat === 'aho' && next.monto !== prev.monto) {
+            objetivos = s.objetivos.map((o) =>
+              prev.desc === `Aporte a ${o.nombre}` ? { ...o, actual: o.actual + (next.monto - prev.monto) } : o,
+            );
+          }
+
+          return { movimientos, instancias, objetivos };
+        }),
+
+      // Borrar un movimiento. Si es el pago de un gasto fijo, desmarca su instancia;
+      // si es un aporte, descuenta del objetivo.
+      deleteMovimiento: (id) =>
+        set((s) => {
+          const mov = s.movimientos.find((m) => m.id === id);
+          if (!mov) return s;
+          const movimientos = s.movimientos.filter((m) => m.id !== id);
+
+          let instancias = s.instancias;
+          if ((mov.tags ?? []).includes('gasto-fijo')) {
+            instancias = s.instancias.map((inst) => {
+              if (inst.pagadoMovId !== id) return inst;
+              const { pagado: _p, pagadoFecha: _f, pagadoMovId: _m, ...rest } = inst;
+              return { ...rest, pagado: false };
+            });
+          }
+
+          let objetivos = s.objetivos;
+          if (mov.tipo === 'ahorro' && mov.cat === 'aho') {
+            objetivos = s.objetivos.map((o) =>
+              mov.desc === `Aporte a ${o.nombre}` ? { ...o, actual: o.actual - mov.monto } : o,
+            );
+          }
+
+          return { movimientos, instancias, objetivos };
         }),
 
       // ── conceptos / categorías / usuarios ──

@@ -1,6 +1,45 @@
 import { useEffect, type ReactNode } from 'react';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 
+// Bloqueo de scroll del fondo a prueba de iOS (position:fixed en el body). Con
+// CONTADOR de referencias para que los diálogos anidados no lo suelten antes de
+// tiempo: recién se restaura cuando se cierra el último.
+let lockCount = 0;
+let savedScrollY = 0;
+let savedStyle: Record<string, string> = {};
+
+function lockBody() {
+  if (typeof document === 'undefined') return;
+  const body = document.body;
+  if (lockCount === 0) {
+    savedScrollY = window.scrollY;
+    savedStyle = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = 'fixed';
+    body.style.top = `-${savedScrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+  }
+  lockCount += 1;
+}
+
+function unlockBody() {
+  if (typeof document === 'undefined') return;
+  lockCount = Math.max(0, lockCount - 1);
+  if (lockCount === 0) {
+    Object.assign(document.body.style, savedStyle);
+    window.scrollTo(0, savedScrollY);
+  }
+}
+
 /**
  * Bottom sheet (mobile/tablet) o modal centrado (desktop) según breakpoint.
  * Mismo contenido, distinto contenedor — como pide la guía responsive.
@@ -17,34 +56,19 @@ export function AdaptiveDialog({
   const bp = useBreakpoint();
   const isDesktop = bp === 'desktop';
 
+  // Bloqueo de scroll del fondo (con contador para diálogos anidados).
+  useEffect(() => {
+    if (!open) return;
+    lockBody();
+    return unlockBody;
+  }, [open]);
+
+  // Cerrar con Escape.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
-    // Bloqueo de scroll del fondo a prueba de iOS: `overflow:hidden` en el body
-    // no alcanza en Safari móvil (sigue scrolleando la página de atrás). Fijamos el
-    // body con position:fixed y restauramos la posición al cerrar.
-    const scrollY = window.scrollY;
-    const body = document.body;
-    const prev = {
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      width: body.style.width,
-      overflow: body.style.overflow,
-    };
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollY}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-    body.style.width = '100%';
-    body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      Object.assign(body.style, prev);
-      window.scrollTo(0, scrollY);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
   if (!open) return null;
