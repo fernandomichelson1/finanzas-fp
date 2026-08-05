@@ -56,18 +56,22 @@ function Row({
   const cat = useCatById(v.cat) ?? FALLBACK;
   const [monto, setMonto] = useState(moneyToInput(v.monto));
   const [dia, setDia] = useState(String(v.diaVenc));
+  // `dirty` = el usuario tipeó algo. Solo así se confirma (no por entrar/salir).
+  const [dirty, setDirty] = useState(false);
 
   // Resincroniza si cambia desde afuera (otro pago, sync de Pao, etc.)
   useEffect(() => {
     setMonto(moneyToInput(v.monto));
     setDia(String(v.diaVenc));
+    setDirty(false);
   }, [v.monto, v.diaVenc]);
 
   const commit = () => {
+    // Nunca confirma por un clic accidental: recién si tocaste el valor.
+    if (!dirty) return;
+    setDirty(false);
     const m = parseMoney(monto);
     const d = Math.max(1, Math.min(31, Number(dia) || v.diaVenc));
-    // Solo confirma (pasa a verde) si REALMENTE cambió algo. Entrar y salir del
-    // campo sin tocar nada no lo marca — evita avalar un gasto por un clic accidental.
     if (Math.abs(m - v.monto) < 0.005 && d === v.diaVenc) return;
     onCommit(v.gfId, v.mes, m, d);
   };
@@ -122,7 +126,7 @@ function Row({
           inputMode="decimal"
           disabled={v.pagado}
           title={v.prefilled && !v.pagado ? 'Monto del mes anterior — ajustalo con la factura' : undefined}
-          onChange={(e) => setMonto(formatMiles(e.target.value))}
+          onChange={(e) => { setMonto(formatMiles(e.target.value)); setDirty(true); }}
           onBlur={commit}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           className="w-full rounded-lg border bg-surface-2 py-1.5 pl-6 pr-2 text-right text-[13.5px] font-semibold tabular-nums outline-none focus:border-accent disabled:opacity-60"
@@ -141,7 +145,7 @@ function Row({
         max={31}
         value={dia}
         disabled={v.pagado}
-        onChange={(e) => setDia(e.target.value)}
+        onChange={(e) => { setDia(e.target.value); setDirty(true); }}
         onBlur={commit}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         className="w-full rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-center text-[13.5px] font-semibold tabular-nums text-text outline-none focus:border-accent disabled:opacity-60"
