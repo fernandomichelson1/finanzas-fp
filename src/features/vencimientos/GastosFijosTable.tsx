@@ -67,12 +67,13 @@ function Row({
   }, [v.monto, v.diaVenc]);
 
   const commit = () => {
-    // Nunca confirma por un clic accidental: recién si tocaste el valor.
+    // Nunca confirma por un clic accidental: recién si TIPEÁS algo (dirty).
+    // Si tipeás —aunque sea el mismo número— sí queda confirmado (verde). Entrar y
+    // salir sin tocar el teclado NO lo marca.
     if (!dirty) return;
     setDirty(false);
     const m = parseMoney(monto);
     const d = Math.max(1, Math.min(31, Number(dia) || v.diaVenc));
-    if (Math.abs(m - v.monto) < 0.005 && d === v.diaVenc) return;
     onCommit(v.gfId, v.mes, m, d);
   };
 
