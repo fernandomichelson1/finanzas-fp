@@ -64,8 +64,12 @@ function Row({
   }, [v.monto, v.diaVenc]);
 
   const commit = () => {
-    const d = Math.max(1, Math.min(31, Number(dia) || 1));
-    onCommit(v.gfId, v.mes, parseMoney(monto), d);
+    const m = parseMoney(monto);
+    const d = Math.max(1, Math.min(31, Number(dia) || v.diaVenc));
+    // Solo confirma (pasa a verde) si REALMENTE cambió algo. Entrar y salir del
+    // campo sin tocar nada no lo marca — evita avalar un gasto por un clic accidental.
+    if (Math.abs(m - v.monto) < 0.005 && d === v.diaVenc) return;
+    onCommit(v.gfId, v.mes, m, d);
   };
 
   const dr = daysUntil(v.vence);

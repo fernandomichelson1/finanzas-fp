@@ -52,7 +52,8 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
   const updateInstancia = useFinanzasStore((s) => s.updateInstancia);
   const updateGastoFijo = useFinanzasStore((s) => s.updateGastoFijo);
   const setGastoFijoOwnerFrom = useFinanzasStore((s) => s.setGastoFijoOwnerFrom);
-  const [sel, setSel] = useState<string | null>(cajas[0]?.id ?? null);
+  // Sin caja pre-elegida: obliga a elegir conscientemente de dónde sale la plata.
+  const [sel, setSel] = useState<string | null>(null);
   const [monto, setMonto] = useState(moneyToInput(venc.monto));
   // Día efectivo de ESTE mes (el fijo del gasto o el override del mes).
   const [dia, setDia] = useState(String(Number(venc.vence.split('-')[2])));
@@ -153,7 +154,10 @@ export function PagarSheet({ venc, onClose }: { venc: VencimientoRow; onClose: (
           <OwnerPicker value={owner} onChange={applyOwner} />
         </div>
 
-        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Desde qué caja</div>
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          Desde qué caja
+          {!sel && <span className="rounded-full px-1.5 py-0.5 text-[9.5px] normal-case" style={{ background: alpha('#F59E0B', 0.15), color: '#F59E0B' }}>Elegí de dónde sale</span>}
+        </div>
         <div className="mb-4 flex flex-col gap-1.5">
           {cajas.map((ca) => {
             const active = sel === ca.id;
