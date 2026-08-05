@@ -13,13 +13,15 @@ const FALLBACK = { color: '#64748B', icono: '•', nombre: 'Otros' };
 interface TableProps {
   rows: VencimientoRow[];
   onCommit: (gfId: string, mes: string, monto: number, dia: number) => void;
+  /** Doble clic en el monto: alterna confirmado (verde) ↔ sin confirmar (gris). */
+  onToggleConfirm: (v: VencimientoRow) => void;
   onPagar: (v: VencimientoRow) => void;
   onUnpagar: (v: VencimientoRow) => void;
   onMenu: (v: VencimientoRow) => void;
 }
 
 /** Vista tipo planilla (desktop): ver todos los gastos fijos y rellenar rápido. */
-export function GastosFijosTable({ rows, onCommit, onPagar, onUnpagar, onMenu }: TableProps) {
+export function GastosFijosTable({ rows, onCommit, onToggleConfirm, onPagar, onUnpagar, onMenu }: TableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-surface">
       {/* Header de columnas */}
@@ -32,7 +34,7 @@ export function GastosFijosTable({ rows, onCommit, onPagar, onUnpagar, onMenu }:
         <div />
       </div>
       {rows.map((v, i) => (
-        <Row key={v.id} v={v} isLast={i === rows.length - 1} onCommit={onCommit} onPagar={onPagar} onUnpagar={onUnpagar} onMenu={onMenu} />
+        <Row key={v.id} v={v} isLast={i === rows.length - 1} onCommit={onCommit} onToggleConfirm={onToggleConfirm} onPagar={onPagar} onUnpagar={onUnpagar} onMenu={onMenu} />
       ))}
     </div>
   );
@@ -42,6 +44,7 @@ function Row({
   v,
   isLast,
   onCommit,
+  onToggleConfirm,
   onPagar,
   onUnpagar,
   onMenu,
@@ -49,6 +52,7 @@ function Row({
   v: VencimientoRow;
   isLast: boolean;
   onCommit: TableProps['onCommit'];
+  onToggleConfirm: TableProps['onToggleConfirm'];
   onPagar: TableProps['onPagar'];
   onUnpagar: TableProps['onUnpagar'];
   onMenu: TableProps['onMenu'];
@@ -126,8 +130,15 @@ function Row({
           value={monto}
           inputMode="decimal"
           disabled={v.pagado}
-          title={v.prefilled && !v.pagado ? 'Monto del mes anterior — ajustalo con la factura' : undefined}
+          title={
+            v.pagado
+              ? undefined
+              : v.prefilled
+                ? 'Monto del mes anterior. Doble clic para confirmarlo tal cual (queda verde).'
+                : 'Confirmado. Doble clic para volverlo a gris (sin confirmar).'
+          }
           onChange={(e) => { setMonto(formatMiles(e.target.value)); setDirty(true); }}
+          onDoubleClick={() => { if (!v.pagado) onToggleConfirm(v); }}
           onBlur={commit}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           className="w-full rounded-lg border bg-surface-2 py-1.5 pl-6 pr-2 text-right text-[13.5px] font-semibold tabular-nums outline-none focus:border-accent disabled:opacity-60"

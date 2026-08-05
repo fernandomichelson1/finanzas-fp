@@ -317,7 +317,7 @@ export function GastoFijoForm({ onClose, onSubmit }: { onClose: () => void; onSu
 }
 
 /** Menú kebab de una fila. */
-export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelete, onSetOwner, onRename }: { venc: VencimientoRow; mesLabel: string; onClose: () => void; onEdit: () => void; onPause: () => void; onDelete: () => void; onSetOwner: (owner: Owner) => void; onRename: (nombre: string) => void }) {
+export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelete, onSetOwner, onRename, onToggleConfirm }: { venc: VencimientoRow; mesLabel: string; onClose: () => void; onEdit: () => void; onPause: () => void; onDelete: () => void; onSetOwner: (owner: Owner) => void; onRename: (nombre: string) => void; onToggleConfirm: () => void }) {
   const c = useCatById(venc.cat) ?? FALLBACK;
   const [owner, setOwner] = useState<Owner>(venc.owner);
   const [renaming, setRenaming] = useState(false);
@@ -330,6 +330,14 @@ export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelet
   const items = [
     { id: 'rename', label: 'Editar nombre', sub: 'Cambiar el nombre del gasto fijo', icon: <Icon.edit size={16} />, onClick: () => setRenaming(true), danger: false },
     { id: 'edit', label: 'Editar monto y fecha', sub: 'Solo este mes', icon: <Icon.receipt size={16} />, onClick: onEdit, danger: false },
+    // Confirmar (verde) / volver a gris. No aplica a los ya pagados.
+    ...(venc.pagado
+      ? []
+      : [
+          venc.prefilled
+            ? { id: 'confirm', label: 'Confirmar tal cual', sub: 'Marcar en verde con el monto actual', icon: <Icon.check size={16} />, onClick: onToggleConfirm, danger: false }
+            : { id: 'unconfirm', label: 'Volver a gris', sub: 'Quitar la confirmación de este mes', icon: <Icon.refresh size={16} />, onClick: onToggleConfirm, danger: false },
+        ]),
     { id: 'pause', label: 'Pausar gasto fijo', sub: 'Dejará de aparecer hasta reactivarlo', icon: <Icon.pause size={16} />, onClick: onPause, danger: false },
     { id: 'del', label: 'Eliminar gasto fijo', sub: 'Desaparece para siempre', icon: <Icon.trash size={16} />, onClick: onDelete, danger: true },
   ];

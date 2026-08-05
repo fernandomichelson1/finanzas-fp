@@ -24,6 +24,7 @@ export function VencimientosScreen() {
   const usdRate = useFinanzasStore((s) => s.usdRate);
   const unpagarVencimiento = useFinanzasStore((s) => s.unpagarVencimiento);
   const updateInstancia = useFinanzasStore((s) => s.updateInstancia);
+  const removeInstancia = useFinanzasStore((s) => s.removeInstancia);
   const createGastoFijo = useFinanzasStore((s) => s.createGastoFijo);
   const pauseGastoFijo = useFinanzasStore((s) => s.pauseGastoFijo);
   const deleteGastoFijo = useFinanzasStore((s) => s.deleteGastoFijo);
@@ -248,6 +249,12 @@ export function VencimientosScreen() {
                 const gf = gastosFijos.find((g) => g.id === gfId);
                 if (gf && dia !== gf.diaVenc) updateGastoFijo(gfId, { diaVenc: dia });
               }}
+              onToggleConfirm={(v) => {
+                // Doble clic: confirma un gris (crea instancia con el monto arrastrado) o
+                // des-confirma un verde (borra la instancia → vuelve a gris).
+                if (v.prefilled) updateInstancia(v.gfId, v.mes, { monto: v.monto });
+                else removeInstancia(v.gfId, v.mes);
+              }}
               onPagar={(v) => setPayingFor(v)}
               onUnpagar={(v) => unpagarVencimiento(v.gfId, v.mes)}
               onMenu={(v) => setMenuFor(v)}
@@ -328,6 +335,11 @@ export function VencimientosScreen() {
           onSetOwner={(owner) => setGastoFijoOwnerFrom(menuFor.gfId, activeMonth, owner)}
           onEdit={() => {
             setEditingId(menuFor.id);
+            setMenuFor(null);
+          }}
+          onToggleConfirm={() => {
+            if (menuFor.prefilled) updateInstancia(menuFor.gfId, menuFor.mes, { monto: menuFor.monto });
+            else removeInstancia(menuFor.gfId, menuFor.mes);
             setMenuFor(null);
           }}
           onPause={() => {

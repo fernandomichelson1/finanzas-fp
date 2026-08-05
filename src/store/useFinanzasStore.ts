@@ -98,6 +98,8 @@ interface Actions {
   updateGastoFijo: (id: string, payload: Partial<GastoFijo>) => void;
   setGastoFijoOwnerFrom: (id: string, desde: string, owner: Owner) => void;
   updateInstancia: (gfId: string, mes: string, payload: Partial<VencimientoInstancia>) => void;
+  /** Borra la instancia del mes (vuelve a gris / sin confirmar). No hace nada si está pagada. */
+  removeInstancia: (gfId: string, mes: string) => void;
   pagarVencimiento: (venc: VencimientoRow, cajaId: string) => void;
   unpagarVencimiento: (gfId: string, mes: string) => void;
   pauseGastoFijo: (id: string, activate: boolean) => void;
@@ -338,6 +340,14 @@ export const useFinanzasStore = create<FinanzasStore>()(
           const copy = [...s.instancias];
           copy[i] = { ...copy[i], ...payload };
           return { instancias: copy };
+        }),
+
+      removeInstancia: (gfId, mes) =>
+        set((s) => {
+          // No borramos instancias pagadas: primero hay que des-pagar.
+          const inst = s.instancias.find((x) => x.gfId === gfId && x.mes === mes);
+          if (!inst || inst.pagado) return {};
+          return { instancias: s.instancias.filter((x) => !(x.gfId === gfId && x.mes === mes)) };
         }),
 
       pagarVencimiento: (venc, cajaId) => {
