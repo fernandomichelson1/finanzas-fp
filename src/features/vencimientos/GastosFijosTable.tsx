@@ -25,7 +25,7 @@ export function GastosFijosTable({ rows, onCommit, onToggleConfirm, onPagar, onU
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-surface">
       {/* Header de columnas */}
-      <div className="grid grid-cols-[1fr_150px_84px_150px_130px_40px] items-center gap-2 border-b border-line bg-surface-2 px-4 py-2.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted">
+      <div className="grid grid-cols-[1fr_186px_84px_150px_130px_40px] items-center gap-2 border-b border-line bg-surface-2 px-4 py-2.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted">
         <div>Gasto</div>
         <div className="text-right">Monto</div>
         <div className="text-center">Día</div>
@@ -97,7 +97,7 @@ function Row({
 
   return (
     <div
-      className="grid grid-cols-[1fr_150px_84px_150px_130px_40px] items-center gap-2 px-4 py-2 transition-colors hover:bg-surface-2/40"
+      className="grid grid-cols-[1fr_186px_84px_150px_130px_40px] items-center gap-2 px-4 py-2 transition-colors hover:bg-surface-2/40"
       style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)', opacity: v.pagado ? 0.7 : 1 }}
     >
       {/* Gasto (clic → pagar si está pendiente) */}
@@ -123,31 +123,54 @@ function Row({
         </div>
       </div>
 
-      {/* Monto inline */}
-      <div className="relative">
-        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted">$</span>
-        <input
-          value={monto}
-          inputMode="decimal"
+      {/* Monto + círculo de confirmación (un clic: gris ↔ verde) */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => { if (!v.pagado) onToggleConfirm(v); }}
           disabled={v.pagado}
+          aria-label={v.prefilled ? 'Confirmar monto' : 'Quitar confirmación'}
           title={
             v.pagado
-              ? undefined
+              ? 'Pagado'
               : v.prefilled
-                ? 'Monto del mes anterior. Doble clic para confirmarlo tal cual (queda verde).'
-                : 'Confirmado. Doble clic para volverlo a gris (sin confirmar).'
+                ? 'Confirmar este monto (queda en verde)'
+                : 'Confirmado — clic para volver a gris'
           }
-          onChange={(e) => { setMonto(formatMiles(e.target.value)); setDirty(true); }}
-          onDoubleClick={() => { if (!v.pagado) onToggleConfirm(v); }}
-          onBlur={commit}
-          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          className="w-full rounded-lg border bg-surface-2 py-1.5 pl-6 pr-2 text-right text-[13.5px] font-semibold tabular-nums outline-none focus:border-accent disabled:opacity-60"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors"
           style={{
-            color: v.pagado ? 'var(--text)' : v.prefilled ? 'var(--text-muted)' : '#22C55E',
-            borderColor: v.prefilled && !v.pagado ? 'var(--border-strong)' : 'var(--border)',
-            borderStyle: v.prefilled && !v.pagado ? 'dashed' : 'solid',
+            borderColor: v.pagado || !v.prefilled ? '#22C55E' : 'var(--border-strong)',
+            background: v.pagado || !v.prefilled ? alpha('#22C55E', 0.16) : 'transparent',
+            color: '#22C55E',
+            cursor: v.pagado ? 'default' : 'pointer',
           }}
-        />
+        >
+          {(v.pagado || !v.prefilled) && <Icon.check size={13} strokeWidth={3} />}
+        </button>
+        <div className="relative flex-1">
+          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted">$</span>
+          <input
+            value={monto}
+            inputMode="decimal"
+            disabled={v.pagado}
+            title={
+              v.pagado
+                ? undefined
+                : v.prefilled
+                  ? 'Monto del mes anterior. Escribilo (aunque sea igual) o tocá el círculo para confirmar.'
+                  : 'Confirmado. Tocá el círculo verde para volver a gris.'
+            }
+            onChange={(e) => { setMonto(formatMiles(e.target.value)); setDirty(true); }}
+            onBlur={commit}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            className="w-full rounded-lg border bg-surface-2 py-1.5 pl-6 pr-2 text-right text-[13.5px] font-semibold tabular-nums outline-none focus:border-accent disabled:opacity-60"
+            style={{
+              color: v.pagado ? 'var(--text)' : v.prefilled ? 'var(--text-muted)' : '#22C55E',
+              borderColor: v.prefilled && !v.pagado ? 'var(--border-strong)' : 'var(--border)',
+              borderStyle: v.prefilled && !v.pagado ? 'dashed' : 'solid',
+            }}
+          />
+        </div>
       </div>
 
       {/* Día inline */}

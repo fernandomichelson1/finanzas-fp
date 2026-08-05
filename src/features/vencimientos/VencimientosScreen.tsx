@@ -233,7 +233,10 @@ export function VencimientosScreen() {
         {filter !== 'inactivos' && visibles.some((v) => v.prefilled && !v.pagado) && (
           <div className="mb-3 flex items-center gap-2 rounded-xl border border-dashed border-line-strong bg-surface-2 px-3 py-2 text-[11.5px] text-muted">
             <Icon.warn size={14} className="shrink-0" />
-            Los montos en gris vienen del mes pasado. Ajustalos con la factura y marcá pagado.
+            Los montos en gris vienen del mes pasado.{' '}
+            {isDesktop
+              ? 'Escribí el importe de la factura (aunque sea igual) o tocá el círculo ✓ para confirmarlo.'
+              : 'Editá el importe con la factura, o confirmalo desde el menú (⋯), para dejarlo en verde.'}
           </div>
         )}
 
