@@ -34,9 +34,20 @@ export function totalCuenta(cajas: Caja[], saldos: Record<string, number>, cajaI
  * Cajas madre + sus subcuentas (un nivel) que cumplen `incluir`, ordenadas con cada
  * subcuenta a continuación de su cuenta madre. Excluye siempre las archivadas.
  */
-export function cajasConSubcuentas(cajas: Caja[], incluir: (c: Caja) => boolean): Caja[] {
+export function cajasConSubcuentas(
+  cajas: Caja[],
+  incluir: (c: Caja) => boolean,
+  // Si se pasa, las cuentas de este dueño van PRIMERO (y el resto después), sin
+  // romper el agrupado padre→subcuentas ni el orden relativo dentro de cada grupo.
+  primeroOwner?: UserId,
+): Caja[] {
   const ok = (c: Caja) => !c.archivada && incluir(c);
-  const top = cajas.filter((c) => !c.parent && ok(c));
+  let top = cajas.filter((c) => !c.parent && ok(c));
+  if (primeroOwner) {
+    top = [...top].sort(
+      (a, b) => Number(b.owner === primeroOwner) - Number(a.owner === primeroOwner),
+    );
+  }
   return top.flatMap((p) => [p, ...cajas.filter((c) => c.parent === p.id && ok(c))]);
 }
 

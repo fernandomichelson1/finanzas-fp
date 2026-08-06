@@ -60,7 +60,9 @@ export function NuevoMovimiento({ onClose, presetCajaId }: { onClose: () => void
   // Cajas para elegir: en transferencia, TODAS las cuentas de ambos (origen y destino).
   // En gastos/ingresos/ahorro: las propias + efectivo compartido. Siempre con subcuentas.
   const userCajas = useMemo(
-    () => (tipo === 'transferencia' ? cajasConSubcuentas(allCajas, () => true) : cajasUsables(allCajas, currentUser)),
+    // En transferencia se ven las cuentas de ambos, pero primero las del usuario
+    // actual (las de la pareja quedan abajo, con su etiqueta "de …").
+    () => (tipo === 'transferencia' ? cajasConSubcuentas(allCajas, () => true, currentUser) : cajasUsables(allCajas, currentUser)),
     [allCajas, currentUser, tipo],
   );
   const montoNum = parseMoney(monto);

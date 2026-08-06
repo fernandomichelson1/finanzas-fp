@@ -30,7 +30,7 @@ export function MovEditSheet({ mov, onClose }: { mov: Movimiento; onClose: () =>
 
   // Opciones de caja: en transferencia todas; si no, propias + efectivo. Incluye
   // siempre las cajas que ya tiene el movimiento (por si no están en el set).
-  const base = mov.tipo === 'transferencia' ? cajasConSubcuentas(allCajas, () => true) : cajasUsables(allCajas, currentUser);
+  const base = mov.tipo === 'transferencia' ? cajasConSubcuentas(allCajas, () => true, currentUser) : cajasUsables(allCajas, currentUser);
   const ensure = (list: Caja[], id: string | null): Caja[] => {
     if (!id || list.some((c) => c.id === id)) return list;
     const c = allCajas.find((x) => x.id === id);
