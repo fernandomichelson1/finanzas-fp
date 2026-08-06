@@ -109,7 +109,11 @@ export function VencimientoRow({
               className="mt-0.5 text-right text-[10.5px] font-semibold tracking-wide"
               style={{ color: v.prefilled && !v.pagado ? 'var(--text-muted)' : urg }}
             >
-              {v.prefilled && !v.pagado ? 'mes pasado' : fechaCorta(v.vence)}
+              {v.pagado
+                ? fechaCorta(v.pagadoFecha ?? v.vence)
+                : v.prefilled
+                  ? 'mes pasado'
+                  : fechaCorta(v.vence)}
             </div>
           </div>
           <button
