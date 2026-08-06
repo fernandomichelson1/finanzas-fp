@@ -12,8 +12,19 @@ const FALLBACK = { color: '#64748B', icono: '•', nombre: 'Otros' };
 
 interface TableProps {
   rows: VencimientoRow[];
-  onCommit: (gfId: string, mes: string, monto: number, dia: number) => void;
-  /** Doble clic en el monto: alterna confirmado (verde) ↔ sin confirmar (gris). */
+  /**
+   * Confirma cambios del monto y/o del día. `changed` indica cuál se tocó:
+   * el monto confirma (verde) creando/actualizando la instancia; el día solo
+   * mueve el día del gasto (no confirma). Así, tocar solo el día NO pinta verde.
+   */
+  onCommit: (
+    gfId: string,
+    mes: string,
+    monto: number,
+    dia: number,
+    changed: { montoChanged: boolean; diaChanged: boolean },
+  ) => void;
+  /** Botón circular (un clic): alterna confirmado (verde) ↔ sin confirmar (gris). */
   onToggleConfirm: (v: VencimientoRow) => void;
   onPagar: (v: VencimientoRow) => void;
   onUnpagar: (v: VencimientoRow) => void;
@@ -60,25 +71,42 @@ function Row({
   const cat = useCatById(v.cat) ?? FALLBACK;
   const [monto, setMonto] = useState(moneyToInput(v.monto));
   const [dia, setDia] = useState(String(v.diaVenc));
-  // `dirty` = el usuario tipeó algo. Solo así se confirma (no por entrar/salir).
-  const [dirty, setDirty] = useState(false);
+  // Flags separados: tipear el MONTO confirma (verde); tocar solo el DÍA no. Sólo
+  // se marca al tipear (no por entrar/salir del campo).
+  const [montoDirty, setMontoDirty] = useState(false);
+  const [diaDirty, setDiaDirty] = useState(false);
 
-  // Resincroniza si cambia desde afuera (otro pago, sync de Pao, etc.)
+  // Resincroniza si cambia desde afuera (otro pago, sync de Pao, etc.), pero NO
+  // mientras el usuario está editando (para no pisar lo que escribió sin blurear).
   useEffect(() => {
+    if (montoDirty || diaDirty) return;
     setMonto(moneyToInput(v.monto));
     setDia(String(v.diaVenc));
-    setDirty(false);
-  }, [v.monto, v.diaVenc]);
+  }, [v.monto, v.diaVenc, montoDirty, diaDirty]);
+
+  const clampDia = () => Math.max(1, Math.min(31, Number(dia) || v.diaVenc));
 
   const commit = () => {
-    // Nunca confirma por un clic accidental: recién si TIPEÁS algo (dirty).
-    // Si tipeás —aunque sea el mismo número— sí queda confirmado (verde). Entrar y
-    // salir sin tocar el teclado NO lo marca.
-    if (!dirty) return;
-    setDirty(false);
-    const m = parseMoney(monto);
-    const d = Math.max(1, Math.min(31, Number(dia) || v.diaVenc));
-    onCommit(v.gfId, v.mes, m, d);
+    // Entrar/salir sin tipear NO confirma. El monto confirma (verde); el día solo
+    // mueve el día del gasto (sin pintar verde).
+    if (!montoDirty && !diaDirty) return;
+    onCommit(v.gfId, v.mes, parseMoney(monto), clampDia(), { montoChanged: montoDirty, diaChanged: diaDirty });
+    setMontoDirty(false);
+    setDiaDirty(false);
+  };
+
+  // Círculo de confirmación (un clic). Gris → confirma con el valor MOSTRADO (lo
+  // tipeado o el arrastrado). Verde → des-confirma. El onMouseDown con preventDefault
+  // evita que el botón robe el foco del input y dispare un commit en paralelo.
+  const confirmCircle = () => {
+    if (v.pagado) return;
+    if (v.prefilled) {
+      onCommit(v.gfId, v.mes, parseMoney(monto), clampDia(), { montoChanged: true, diaChanged: diaDirty });
+      setMontoDirty(false);
+      setDiaDirty(false);
+    } else {
+      onToggleConfirm(v);
+    }
   };
 
   const dr = daysUntil(v.vence);
@@ -127,7 +155,8 @@ function Row({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={() => { if (!v.pagado) onToggleConfirm(v); }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={confirmCircle}
           disabled={v.pagado}
           aria-label={v.prefilled ? 'Confirmar monto' : 'Quitar confirmación'}
           title={
@@ -160,7 +189,7 @@ function Row({
                   ? 'Monto del mes anterior. Escribilo (aunque sea igual) o tocá el círculo para confirmar.'
                   : 'Confirmado. Tocá el círculo verde para volver a gris.'
             }
-            onChange={(e) => { setMonto(formatMiles(e.target.value)); setDirty(true); }}
+            onChange={(e) => { setMonto(formatMiles(e.target.value)); setMontoDirty(true); }}
             onBlur={commit}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
             className="w-full rounded-lg border bg-surface-2 py-1.5 pl-6 pr-2 text-right text-[13.5px] font-semibold tabular-nums outline-none focus:border-accent disabled:opacity-60"
@@ -180,7 +209,7 @@ function Row({
         max={31}
         value={dia}
         disabled={v.pagado}
-        onChange={(e) => { setDia(e.target.value); setDirty(true); }}
+        onChange={(e) => { setDia(e.target.value); setDiaDirty(true); }}
         onBlur={commit}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         className="w-full rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-center text-[13.5px] font-semibold tabular-nums text-text outline-none focus:border-accent disabled:opacity-60"

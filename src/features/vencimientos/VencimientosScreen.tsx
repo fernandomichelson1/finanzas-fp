@@ -235,7 +235,7 @@ export function VencimientosScreen() {
             <Icon.warn size={14} className="shrink-0" />
             Los montos en gris vienen del mes pasado.{' '}
             {isDesktop
-              ? 'Escribí el importe de la factura (aunque sea igual) o tocá el círculo ✓ para confirmarlo.'
+              ? 'Escribí el importe de la factura (aunque sea igual) o tocá el círculo a la izquierda del monto para confirmarlo.'
               : 'Editá el importe con la factura, o confirmalo desde el menú (⋯), para dejarlo en verde.'}
           </div>
         )}
@@ -247,14 +247,16 @@ export function VencimientosScreen() {
           ) : isDesktop ? (
             <GastosFijosTable
               rows={visibles}
-              onCommit={(gfId, mes, monto, dia) => {
-                updateInstancia(gfId, mes, { monto });
+              onCommit={(gfId, mes, monto, dia, changed) => {
+                // El monto confirma (crea/actualiza la instancia → verde). El día solo
+                // mueve el día del gasto, SIN crear instancia (no pinta verde).
+                if (changed.montoChanged) updateInstancia(gfId, mes, { monto });
                 const gf = gastosFijos.find((g) => g.id === gfId);
-                if (gf && dia !== gf.diaVenc) updateGastoFijo(gfId, { diaVenc: dia });
+                if (changed.diaChanged && gf && dia !== gf.diaVenc) updateGastoFijo(gfId, { diaVenc: dia });
               }}
               onToggleConfirm={(v) => {
-                // Doble clic: confirma un gris (crea instancia con el monto arrastrado) o
-                // des-confirma un verde (borra la instancia → vuelve a gris).
+                // Un clic en el círculo (o desde el menú): confirma un gris (crea instancia
+                // con el monto arrastrado) o des-confirma un verde (borra la instancia → gris).
                 if (v.prefilled) updateInstancia(v.gfId, v.mes, { monto: v.monto });
                 else removeInstancia(v.gfId, v.mes);
               }}

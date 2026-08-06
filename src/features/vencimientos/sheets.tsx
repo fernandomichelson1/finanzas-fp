@@ -336,7 +336,7 @@ export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelet
       : [
           venc.prefilled
             ? { id: 'confirm', label: 'Confirmar tal cual', sub: 'Marcar en verde con el monto actual', icon: <Icon.check size={16} />, onClick: onToggleConfirm, danger: false }
-            : { id: 'unconfirm', label: 'Volver a gris', sub: 'Quitar la confirmación de este mes', icon: <Icon.refresh size={16} />, onClick: onToggleConfirm, danger: false },
+            : { id: 'unconfirm', label: 'Volver a gris', sub: 'Vuelve al monto del mes pasado (descarta lo tipeado)', icon: <Icon.refresh size={16} />, onClick: onToggleConfirm, danger: false },
         ]),
     { id: 'pause', label: 'Pausar gasto fijo', sub: 'Dejará de aparecer hasta reactivarlo', icon: <Icon.pause size={16} />, onClick: onPause, danger: false },
     { id: 'del', label: 'Eliminar gasto fijo', sub: 'Desaparece para siempre', icon: <Icon.trash size={16} />, onClick: onDelete, danger: true },
