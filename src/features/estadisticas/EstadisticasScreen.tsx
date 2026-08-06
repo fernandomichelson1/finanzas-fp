@@ -41,7 +41,10 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
       periodo === 'custom' ? fecha >= desde && fecha <= hasta : inMes(fecha.slice(0, 7));
     const gfById = new Map(gastosFijos.map((g) => [g.id, g]));
     const cajaOwner = new Map(cajas.map((c) => [c.id, c.owner]));
-    const paga = { fer: 0, pao: 0, compartido: 0 };
+    // Gastos fijos pagados, según el RESPONSABLE del gasto (fer/pao/compartido).
+    const gastoFijo = { fer: 0, pao: 0, compartido: 0 };
+    // Gastos varios (los eventuales, del día a día), según quién los cargó.
+    const gastoVario = { fer: 0, pao: 0 };
     // Gastos fijos según de QUÉ CUENTA salió la plata (el dueño de la caja), sin
     // importar de quién es el gasto. "Lo que puso realmente cada uno".
     const pagoFijosReal = { fer: 0, pao: 0 };
@@ -69,7 +72,7 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
       const monto = inst.monto ?? gf.montoSugerido ?? 0;
       const owner = ownerForMonth(gf, inst.mes);
       const quien = owner === 'fer' ? 'fer' : owner === 'pao' ? 'pao' : 'compartido';
-      paga[quien] += monto;
+      gastoFijo[quien] += monto;
       addCat(gf.cat, monto, quien);
     }
     // Movimientos: gastos eventuales (no los pagos de gasto fijo), ingresos y ahorros.
@@ -82,12 +85,12 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
         const dueño = cajaOwner.get(m.caja ?? '') === 'pao' ? 'pao' : 'fer';
         pagoFijosReal[dueño] += m.monto;
       } else if (m.tipo === 'gasto') {
-        paga[u] += m.monto;
+        gastoVario[u] += m.monto;
         addCat(m.cat, m.monto, u);
       } else if (m.tipo === 'ingreso') ingresa[u] += m.monto;
       else if (m.tipo === 'ahorro') ahorra[u] += m.monto;
     }
-    return { paga, pagoFijosReal, ingresa, ahorra, porCat, porCatOwner };
+    return { gastoFijo, gastoVario, pagoFijosReal, ingresa, ahorra, porCat, porCatOwner };
   }, [gastosFijos, instancias, movimientos, cajas, periodo, desde, hasta, year]);
 
   const totalGastos = Object.values(stats.porCat).reduce((s, v) => s + v, 0);
@@ -184,8 +187,9 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
         </div>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <MetricCard title="Paga cada uno" hint="Gastos fijos (según responsable) + gastos eventuales" fer={stats.paga.fer} pao={stats.paga.pao} compartido={stats.paga.compartido} ferName={users.fer?.nombre ?? 'Fer'} paoName={users.pao?.nombre ?? 'Pao'} />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard title="Gastos fijos" hint="Los fijos pagados, según el responsable del gasto" fer={stats.gastoFijo.fer} pao={stats.gastoFijo.pao} compartido={stats.gastoFijo.compartido} ferName={users.fer?.nombre ?? 'Fer'} paoName={users.pao?.nombre ?? 'Pao'} />
+        <MetricCard title="Gastos varios" hint="Los del día a día (no fijos), por quién los cargó" fer={stats.gastoVario.fer} pao={stats.gastoVario.pao} ferName={users.fer?.nombre ?? 'Fer'} paoName={users.pao?.nombre ?? 'Pao'} />
         <MetricCard title="Ingresa cada uno" hint="Ingresos cargados a la cuenta" fer={stats.ingresa.fer} pao={stats.ingresa.pao} ferName={users.fer?.nombre ?? 'Fer'} paoName={users.pao?.nombre ?? 'Pao'} />
         <MetricCard title="Ahorra cada uno" hint="Aportes a objetivos y ahorros" fer={stats.ahorra.fer} pao={stats.ahorra.pao} ferName={users.fer?.nombre ?? 'Fer'} paoName={users.pao?.nombre ?? 'Pao'} />
       </div>
@@ -202,7 +206,8 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
         />
         <div className="mt-3 flex items-center rounded-2xl border border-dashed border-line bg-surface-2 px-4 py-3.5 lg:mt-0">
           <p className="m-0 text-[12.5px] leading-relaxed text-muted">
-            A diferencia de “Paga cada uno”, esto suma cada pago de gasto fijo por la{' '}
+            La tarjeta <b className="font-semibold text-text">“Gastos fijos”</b> reparte por el responsable del gasto.
+            Esta, en cambio, suma cada pago por la{' '}
             <b className="font-semibold text-text">cuenta de la que salió la plata</b>, sin importar de quién sea el
             gasto. Ej: si pagás un gasto de {users.pao?.nombre ?? 'Pao'} desde tu cuenta, cuenta como que lo pusiste vos.
           </p>
