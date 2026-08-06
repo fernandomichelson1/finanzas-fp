@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { ownerForMonth, serieGastosMeses } from '@/lib/selectors';
-import { MES_ACTUAL, mesLabel } from '@/lib/date';
+import { MES_ACTUAL, TODAY, mesLabel, fechaCorta } from '@/lib/date';
 import { fmtARSCompact, fmtMonto } from '@/lib/format';
 import { alpha } from '@/lib/color';
 import { Avatar } from '@/components/ui/Avatar';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Donut, MonthlyBars, type DonutDatum } from '@/components/charts';
 
-type Periodo = 'mes' | 'anio' | 'todo';
+type Periodo = 'mes' | 'anio' | 'todo' | 'custom';
 
 const FER = '#2563EB';
 const PAO = '#E11D48';
@@ -21,14 +21,24 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
   const cajas = useFinanzasStore((s) => s.cajas);
   const users = useFinanzasStore((s) => s.users);
   const [periodo, setPeriodo] = useState<Periodo>('mes');
+  const [desde, setDesde] = useState(`${MES_ACTUAL}-01`);
+  const [hasta, setHasta] = useState(TODAY);
   const [selCat, setSelCat] = useState<string | null>(null);
 
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
   const year = MES_ACTUAL.slice(0, 4);
 
   const stats = useMemo(() => {
-    const inPeriod = (mes: string) =>
+    const inMes = (mes: string) =>
       periodo === 'todo' ? true : periodo === 'anio' ? mes.startsWith(year) : mes === MES_ACTUAL;
+    // Un gasto fijo pagado entra si su FECHA DE PAGO cae en el rango (custom) o su
+    // mes cae en el preset. Un movimiento entra por su fecha (custom) o su mes.
+    const instEnPeriodo = (inst: { mes: string; pagadoFecha?: string }) =>
+      periodo === 'custom'
+        ? !!inst.pagadoFecha && inst.pagadoFecha >= desde && inst.pagadoFecha <= hasta
+        : inMes(inst.mes);
+    const movEnPeriodo = (fecha: string) =>
+      periodo === 'custom' ? fecha >= desde && fecha <= hasta : inMes(fecha.slice(0, 7));
     const gfById = new Map(gastosFijos.map((g) => [g.id, g]));
     const cajaOwner = new Map(cajas.map((c) => [c.id, c.owner]));
     const paga = { fer: 0, pao: 0, compartido: 0 };
@@ -53,7 +63,7 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
 
     // Gastos fijos pagados → según el responsable de ese mes.
     for (const inst of instancias) {
-      if (!inst.pagado || !inPeriod(inst.mes)) continue;
+      if (!inst.pagado || !instEnPeriodo(inst)) continue;
       const gf = gfById.get(inst.gfId);
       if (!gf) continue;
       const monto = inst.monto ?? gf.montoSugerido ?? 0;
@@ -64,7 +74,7 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
     }
     // Movimientos: gastos eventuales (no los pagos de gasto fijo), ingresos y ahorros.
     for (const m of movimientos) {
-      if (!inPeriod(m.fecha.slice(0, 7))) continue;
+      if (!movEnPeriodo(m.fecha)) continue;
       const u: 'fer' | 'pao' = m.user === 'pao' ? 'pao' : 'fer';
       const esFijo = (m.tags ?? []).includes('gasto-fijo');
       if (m.tipo === 'gasto' && esFijo) {
@@ -78,7 +88,7 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
       else if (m.tipo === 'ahorro') ahorra[u] += m.monto;
     }
     return { paga, pagoFijosReal, ingresa, ahorra, porCat, porCatOwner };
-  }, [gastosFijos, instancias, movimientos, cajas, periodo, year]);
+  }, [gastosFijos, instancias, movimientos, cajas, periodo, desde, hasta, year]);
 
   const totalGastos = Object.values(stats.porCat).reduce((s, v) => s + v, 0);
   const donutData: DonutDatum[] = useMemo(
@@ -106,7 +116,14 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
     [instancias, gastosFijos, movimientos],
   );
 
-  const periodoLabel = periodo === 'mes' ? mesLabel(MES_ACTUAL) : periodo === 'anio' ? year : 'Todo el historial';
+  const periodoLabel =
+    periodo === 'mes'
+      ? mesLabel(MES_ACTUAL)
+      : periodo === 'anio'
+        ? year
+        : periodo === 'todo'
+          ? 'Todo el historial'
+          : `${fechaCorta(desde)} – ${fechaCorta(hasta)}`;
 
   return (
     <div className={embedded ? 'px-[18px] lg:px-0' : 'px-[18px] pt-2 lg:px-0'}>
@@ -121,22 +138,51 @@ export function EstadisticasScreen({ embedded = false }: { embedded?: boolean })
       )}
 
       {/* Período */}
-      <div className="mb-4 flex gap-1.5">
-        {(['mes', 'anio', 'todo'] as Periodo[]).map((p) => (
+      <div className="hide-scroll mb-3 flex gap-1.5 overflow-x-auto">
+        {(['mes', 'anio', 'todo', 'custom'] as Periodo[]).map((p) => (
           <button
             key={p}
             onClick={() => setPeriodo(p)}
-            className="flex-1 rounded-[10px] border py-2.5 text-[13px] font-semibold transition-colors"
+            className="shrink-0 whitespace-nowrap rounded-[10px] border px-4 py-2.5 text-[13px] font-semibold transition-colors"
             style={{
               background: periodo === p ? 'var(--text)' : 'var(--surface)',
               color: periodo === p ? 'var(--bg)' : 'var(--text-muted)',
               borderColor: periodo === p ? 'var(--text)' : 'var(--border)',
             }}
           >
-            {p === 'mes' ? 'Este mes' : p === 'anio' ? 'Este año' : 'Todo'}
+            {p === 'mes' ? 'Este mes' : p === 'anio' ? 'Este año' : p === 'todo' ? 'Todo' : 'Personalizado'}
           </button>
         ))}
       </div>
+
+      {periodo === 'custom' && (
+        <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">Desde</span>
+            <input
+              type="date"
+              value={desde}
+              max={hasta}
+              onChange={(e) => setDesde(e.target.value)}
+              className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-[13px] text-text outline-none focus:border-accent"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">Hasta</span>
+            <input
+              type="date"
+              value={hasta}
+              min={desde}
+              max={TODAY}
+              onChange={(e) => setHasta(e.target.value)}
+              className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-[13px] text-text outline-none focus:border-accent"
+            />
+          </label>
+          <span className="flex-1 text-[11.5px] leading-snug text-muted">
+            Toma los pagos e ingresos con fecha entre esas dos (inclusive).
+          </span>
+        </div>
+      )}
 
       <div className="grid gap-3 lg:grid-cols-3">
         <MetricCard title="Paga cada uno" hint="Gastos fijos (según responsable) + gastos eventuales" fer={stats.paga.fer} pao={stats.paga.pao} compartido={stats.paga.compartido} ferName={users.fer?.nombre ?? 'Fer'} paoName={users.pao?.nombre ?? 'Pao'} />
