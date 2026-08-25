@@ -111,7 +111,7 @@ function Row({
   };
 
   const dr = daysUntil(v.vence);
-  const { color: urg, rojo: urgentRed } = urgenciaVenc(dr, v.pagado);
+  const { color: urg, rojo: urgentRed } = urgenciaVenc(dr, v.pagado, !v.prefilled);
   const estado = v.pagado
     ? v.pagadoFecha
       ? `Pagado ${fechaCorta(v.pagadoFecha)}`

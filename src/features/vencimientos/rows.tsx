@@ -33,7 +33,7 @@ export function VencimientoRow({
   const cat = useCatById(v.cat);
   const c = cat ?? FALLBACK;
   const dr = daysUntil(v.vence);
-  const { color: urg, rojo: urgentRed } = urgenciaVenc(dr, v.pagado);
+  const { color: urg, rojo: urgentRed } = urgenciaVenc(dr, v.pagado, !v.prefilled);
   const venceLabel = v.pagado
     ? v.pagadoFecha
       ? `Pagado ${niceDate(v.pagadoFecha).toLowerCase()}`
