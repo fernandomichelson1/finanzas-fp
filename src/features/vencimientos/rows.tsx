@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { GastoFijo, VencimientoRow as VRow } from '@/types/domain';
 import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { fechaCorta, daysUntil, niceDate } from '@/lib/date';
+import { urgenciaVenc } from './urgencia';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
 import { Icon } from '@/components/ui/icons';
@@ -32,9 +33,7 @@ export function VencimientoRow({
   const cat = useCatById(v.cat);
   const c = cat ?? FALLBACK;
   const dr = daysUntil(v.vence);
-  const urgentRed = !v.pagado && dr <= 3;
-  const urgentAmber = !v.pagado && !urgentRed && dr <= 10;
-  const urg = v.pagado ? '#4ADE80' : urgentRed ? '#F87171' : urgentAmber ? '#F59E0B' : 'var(--text-muted)';
+  const { color: urg, rojo: urgentRed } = urgenciaVenc(dr, v.pagado);
   const venceLabel = v.pagado
     ? v.pagadoFecha
       ? `Pagado ${niceDate(v.pagadoFecha).toLowerCase()}`

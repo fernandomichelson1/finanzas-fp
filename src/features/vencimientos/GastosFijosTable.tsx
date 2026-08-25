@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { VencimientoRow } from '@/types/domain';
 import { daysUntil, fechaCorta } from '@/lib/date';
+import { urgenciaVenc } from './urgencia';
 import { formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha } from '@/lib/color';
 import { CatIcon } from '@/components/ui/CatIcon';
@@ -110,9 +111,7 @@ function Row({
   };
 
   const dr = daysUntil(v.vence);
-  const urgentRed = !v.pagado && dr <= 3;
-  const urgentAmber = !v.pagado && !urgentRed && dr <= 10;
-  const urg = v.pagado ? '#4ADE80' : urgentRed ? '#F87171' : urgentAmber ? '#F59E0B' : 'var(--text-muted)';
+  const { color: urg, rojo: urgentRed } = urgenciaVenc(dr, v.pagado);
   const estado = v.pagado
     ? v.pagadoFecha
       ? `Pagado ${fechaCorta(v.pagadoFecha)}`
