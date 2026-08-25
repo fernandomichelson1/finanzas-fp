@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import type { Caja, CajaTipo, Movimiento, UserId } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { CAJA_TIPOS } from '@/data';
@@ -35,6 +36,15 @@ export function CajasScreen() {
 
   const [view, setView] = useState<'overview' | 'detail' | 'create' | 'edit'>('overview');
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Al tocar "Cuentas" en el menú (o volver a la pantalla), siempre arrancar en la
+  // lista principal, aunque estuvieras dentro del detalle de una cuenta. El detalle
+  // es estado interno (no cambia la URL), así que reseteamos en cada navegación.
+  const location = useLocation();
+  useEffect(() => {
+    setView('overview');
+    setActiveId(null);
+  }, [location.key]);
 
   // Mientras mirás el detalle de una cuenta, el "+" (alta de movimiento) queda
   // apuntado a esa cuenta. Al salir del detalle o de la pantalla, se limpia.

@@ -56,7 +56,11 @@ export function VencimientosScreen() {
   const allVencs = useMemo(
     () =>
       computeVencimientos(gastosFijos, instancias, activeMonth).sort((a, b) => {
+        // 1) Pagados al fondo.
         if (a.pagado !== b.pagado) return a.pagado ? 1 : -1;
+        // 2) Confirmados (verde) arriba; sin confirmar (gris) debajo.
+        if (a.prefilled !== b.prefilled) return a.prefilled ? 1 : -1;
+        // 3) Dentro de cada grupo, por día de vencimiento.
         return a.vence.localeCompare(b.vence);
       }),
     [gastosFijos, instancias, activeMonth],
