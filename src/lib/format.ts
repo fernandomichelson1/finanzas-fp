@@ -22,7 +22,9 @@ export function fmtARSCompact(n: number): string {
  * 1850000 → '1.850.000,00'; 2209144.17 → '2.209.144,17'. No redondea a entero.
  */
 export function fmtMonto(n: number): string {
-  return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Evita el "-0,00": cualquier valor que redondee a cero se muestra como 0 positivo.
+  const v = Math.abs(n) < 0.005 ? 0 : n;
+  return v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // ── Entrada de montos en formato argentino (miles con '.', decimal con ',') ──

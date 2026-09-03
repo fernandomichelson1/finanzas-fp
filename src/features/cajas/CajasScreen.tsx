@@ -13,6 +13,7 @@ import { CatIcon } from '@/components/ui/CatIcon';
 import { Icon } from '@/components/ui/icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
 import { MovRow } from '@/components/movimientos/MovRow';
 
 /** Paleta para subcuentas nuevas (color automático). */
@@ -278,6 +279,12 @@ function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, mo
     setMotivo('');
   };
 
+  // Eliminar cuenta: pide confirmación + escribir el nombre (borrar es casi siempre
+  // un error; deja movimientos huérfanos). Ver también archiveCaja en el store.
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [delTyped, setDelTyped] = useState('');
+  const nombreOk = delTyped.trim().toLowerCase() === caja.nombre.trim().toLowerCase();
+
   return (
     <div className="pt-2">
       <ScreenHeader
@@ -288,10 +295,50 @@ function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, mo
         action={
           <div className="flex items-center gap-1.5">
             <button onClick={onEdit} className="rounded-[10px] border border-line bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-text">Editar</button>
-            <button onClick={onArchive} className="rounded-[10px] border px-2.5 py-1.5 text-xs" style={{ borderColor: alpha('#F87171', 0.3), color: '#F87171' }}>Eliminar</button>
+            <button onClick={() => { setDelTyped(''); setConfirmDel(true); }} className="rounded-[10px] border px-2.5 py-1.5 text-xs" style={{ borderColor: alpha('#F87171', 0.3), color: '#F87171' }}>Eliminar</button>
           </div>
         }
       />
+
+      <AdaptiveDialog open={confirmDel} onClose={() => setConfirmDel(false)}>
+        <div className="p-[18px]">
+          <div className="mb-3 flex items-center gap-2.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: alpha('#F87171', 0.14), color: '#F87171' }}>
+              <Icon.trash size={20} />
+            </div>
+            <div className="text-[16px] font-bold tracking-[-0.3px] text-text">¿Eliminar “{caja.nombre}”?</div>
+          </div>
+          <p className="m-0 mb-3.5 text-[13px] leading-relaxed text-muted">
+            Se elimina la cuenta para siempre.
+            {movimientos.length > 0 && (
+              <>
+                {' '}Tiene <b className="text-text">{movimientos.length} movimiento{movimientos.length === 1 ? '' : 's'}</b> que quedarían sin cuenta y se saldrían de los saldos. Casi nunca hace falta borrar una cuenta: si dejás de usarla, alcanza con no tocarla.
+              </>
+            )}
+          </p>
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            Para confirmar, escribí «{caja.nombre}»
+          </div>
+          <input
+            value={delTyped}
+            onChange={(e) => setDelTyped(e.target.value)}
+            autoFocus
+            placeholder={caja.nombre}
+            className="w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-[15px] text-text outline-none focus:border-accent"
+          />
+          <div className="mt-3.5 flex gap-2">
+            <button onClick={() => setConfirmDel(false)} className="flex-1 rounded-xl border border-line bg-surface-2 py-3 text-sm font-medium text-text">Cancelar</button>
+            <button
+              onClick={() => { if (nombreOk) { setConfirmDel(false); onArchive(); } }}
+              disabled={!nombreOk}
+              className="flex-1 rounded-xl py-3 text-sm font-semibold"
+              style={{ background: nombreOk ? '#DC2626' : 'var(--surface-2)', color: nombreOk ? '#fff' : 'var(--text-muted)', boxShadow: nombreOk ? '0 4px 12px rgba(220,38,38,0.32)' : 'none' }}
+            >
+              Eliminar cuenta
+            </button>
+          </div>
+        </div>
+      </AdaptiveDialog>
       <div className="px-[18px] lg:px-0">
         <div className="relative mb-3.5 overflow-hidden rounded-[22px] p-5" style={{ background: `linear-gradient(160deg, ${caja.color} 0%, ${shade(caja.color, -0.25)} 100%)`, boxShadow: `0 14px 32px ${alpha(caja.color, 0.27)}` }}>
           <div className="pointer-events-none absolute -right-10 -top-14 h-56 w-56" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%)' }} />
