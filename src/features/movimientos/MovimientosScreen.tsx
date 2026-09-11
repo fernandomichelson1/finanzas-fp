@@ -3,6 +3,7 @@ import type { MovimientoTipo } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { fmtMonto } from '@/lib/format';
 import { niceDate } from '@/lib/date';
+import { idTime } from '@/lib/id';
 import { Chip } from '@/components/ui/Chip';
 import { Icon } from '@/components/ui/icons';
 import { MovRow } from '@/components/movimientos/MovRow';
@@ -36,7 +37,7 @@ export function MovimientosScreen() {
         .filter((m) => !catFilter || m.cat === catFilter)
         .filter((m) => !tagFilter || (m.tags || []).includes(tagFilter))
         .filter((m) => !search || m.desc.toLowerCase().includes(search.toLowerCase()))
-        .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id)),
+        .sort((a, b) => b.fecha.localeCompare(a.fecha) || idTime(b.id) - idTime(a.id)),
     [movimientos, userFilter, tipoFilter, catFilter, tagFilter, search],
   );
 

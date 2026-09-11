@@ -4,7 +4,7 @@ import type { Caja, CajaTipo, Movimiento, UserId } from '@/types/domain';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { CAJA_TIPOS } from '@/data';
 import { saldosDeCajas, subcuentasDe, totalCuenta } from '@/lib/selectors';
-import { uid } from '@/lib/id';
+import { uid, idTime } from '@/lib/id';
 import { TODAY } from '@/lib/date';
 import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { alpha, shade } from '@/lib/color';
@@ -239,7 +239,7 @@ function CajaDetalle({ caja, saldo, total, ownerName, parentCaja, subcuentas, mo
   onAddSub: (nombre: string, saldo: number) => void;
   onArqueo: (billetes: Record<string, number>, diff: number, motivo: string) => void;
 }) {
-  const movs = [...movimientos].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
+  const movs = [...movimientos].sort((a, b) => b.fecha.localeCompare(a.fecha) || idTime(b.id) - idTime(a.id));
   const entro = movs.filter((m) => m.caja === caja.id && (m.tipo === 'ingreso' || m.tipo === 'transferencia' || m.tipo === 'ahorro')).reduce((s, m) => s + m.monto, 0);
   const salio = movs.filter((m) => (m.caja === caja.id && (m.tipo === 'gasto' || m.tipo === 'retencion')) || m.caja_origen === caja.id).reduce((s, m) => s + m.monto, 0);
   const hasSubs = subcuentas.length > 0;

@@ -14,6 +14,7 @@ import {
 import { MES_ACTUAL, TODAY, addMonths, daysUntil, fechaCorta, mesLabel, niceDate, saludoDelDia } from '@/lib/date';
 import { fmtARSCompact, fmtMonto, fmtUSD, tipoSign } from '@/lib/format';
 import { movToNotif } from '@/lib/notif';
+import { idTime } from '@/lib/id';
 import { alpha, shade } from '@/lib/color';
 import { Avatar } from '@/components/ui/Avatar';
 import { CatIcon } from '@/components/ui/CatIcon';
@@ -126,7 +127,7 @@ export function DashboardScreen() {
     () =>
       movimientos
         .filter((m) => m.fecha === TODAY)
-        .sort((a, b) => b.id.localeCompare(a.id)),
+        .sort((a, b) => idTime(b.id) - idTime(a.id)),
     [movimientos],
   );
 
@@ -159,7 +160,7 @@ export function DashboardScreen() {
     return movimientos
       .filter((m) => m.tipo === 'gasto' && m.cat === catGastos && m.fecha.startsWith(MES_ACTUAL))
       .slice()
-      .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
+      .sort((a, b) => b.fecha.localeCompare(a.fecha) || idTime(b.id) - idTime(a.id));
   }, [movimientos, catGastos]);
 
   const onPickPhoto = (file?: File) => {
