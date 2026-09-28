@@ -25,8 +25,12 @@ import { GASTOS_FIJOS_SEED, VENCIMIENTOS_INST_SEED } from '@/data/gastosFijos';
  * v7 (2026-09): reorganización de Ingresos. Renombra "Ingresos laborales"→Trabajo,
  *   crea las categorías Mami Fitness e Inversiones, unifica los ingresos sueltos en
  *   "Varios" y reasigna los movimientos ya cargados (sin dejar asientos huérfanos).
+ * v8 (2026-09): reorganización de Egresos POR FUNCIÓN (no por persona). Crea Deporte,
+ *   Salud como categoría propia, renombra Perritos→Mascotas y MamiFitness→Mami Fitness,
+ *   limpia subcategorías "Otros", saca las obsoletas (SM708, Aguas, El Guardián,
+ *   Rebanking, Auto…), unifica en "Varios" y reasigna los movimientos (sin huérfanos).
  */
-export const DATA_VERSION = 7;
+export const DATA_VERSION = 8;
 
 /** IDs de los objetivos que venían precargados (ya no se usan). */
 const SEED_OBJETIVO_IDS = new Set(['o1', 'o2', 'o3']);
@@ -193,6 +197,114 @@ export function normalizeHousehold<T extends Normalizable>(data: T): T {
     // g) borrar subcategorías obsoletas (Budines, Mamis, Tia Pitty, Fer, Ivan, Mamá, Ventas)
     const borrar = new Set([budinesId, mamisId, ventasId, ...mergeIds].filter((x): x is string => !!x));
     concs = concs.filter((k) => !borrar.has(k.id));
+
+    out = { ...out, categories: cats, conceptos: concs, movimientos: movs2 };
+  }
+
+  // v8: reorganización de EGRESOS por función. Acotada a categorías de gasto e
+  // idempotente (guardas de existencia; los lookups nulos nunca tocan las
+  // transferencias que tienen cat/concepto en null).
+  if (from < 8) {
+    let cats = out.categories ?? [];
+    let concs = out.conceptos ?? [];
+    const movs = out.movimientos ?? [];
+
+    const catByName = (nombre: string) =>
+      cats.find((c) => c.tipo === 'gasto' && c.nombre === nombre)?.id ?? null;
+    const cid = (cat: string, nombre: string) =>
+      concs.find((k) => k.cat === cat && k.nombre === nombre)?.id ?? null;
+
+    // categorías ad-hoc que se reabsorben (por nombre, capturadas antes de mutar)
+    const catPao = catByName('Pao');
+    const catCande = catByName('Cande');
+    const catPerritos = catByName('Perritos');
+    const catMamiFit = catByName('MamiFitness');
+    const catEduDup = cats.find((c) => c.tipo === 'gasto' && c.nombre === 'Educación' && c.id !== 'edu')?.id ?? null;
+    const variosId = cid('otrog', 'Varios');
+    const psicoId = cid('sal', 'Psicologa');
+
+    // a) categorías: renombres + nueva Deporte
+    cats = cats.map((c) => {
+      if (catPerritos && c.id === catPerritos) return { ...c, nombre: 'Mascotas' };
+      if (catMamiFit && c.id === catMamiFit) return { ...c, nombre: 'Mami Fitness' };
+      return c;
+    });
+    if (!cats.some((c) => c.id === 'cat-deporte'))
+      cats = [...cats, { id: 'cat-deporte', nombre: 'Deporte', tipo: 'gasto', color: '#F97316', icono: '🏀', uso: 'eventual', custom: true }];
+
+    // b) conceptos nuevos (si faltan)
+    const haveConc = new Set(concs.map((k) => k.id));
+    const nuevos: Concepto[] = [
+      { id: 'co-otrog-ferreteria', nombre: 'Ferretería', cat: 'otrog' },
+      { id: 'co-tc-brubank', nombre: 'Visa Brubank', cat: 'tc' },
+      { id: 'co-imp-iibb', nombre: 'IIBB', cat: 'imp' },
+      { id: 'co-imp-iva', nombre: 'IVA', cat: 'imp' },
+      { id: 'co-imp-ganancias', nombre: 'Ganancias', cat: 'imp' },
+      { id: 'co-prestamo-brubank', nombre: 'Brubank', cat: 'prestamo' },
+      { id: 'co-dep-basquet', nombre: 'Básquet', cat: 'cat-deporte' },
+      { id: 'co-dep-gym', nombre: 'Gimnasio', cat: 'cat-deporte' },
+    ];
+    if (catPerritos) nuevos.push({ id: 'co-masc-alimentos', nombre: 'Alimentos', cat: catPerritos });
+    if (catMamiFit) nuevos.push({ id: 'co-mfg-marketing', nombre: 'Marketing', cat: catMamiFit });
+    concs = [...concs, ...nuevos.filter((k) => !haveConc.has(k.id))];
+
+    // c) conceptos: renombres (por id, idempotente)
+    concs = concs.map((k) => {
+      if (psicoId && k.id === psicoId) return { ...k, nombre: 'Psicólogo' };
+      if (k.id === 'tra-remis') return { ...k, nombre: 'Uber' };
+      if (k.id === 'seg-moto') return { ...k, nombre: 'Moto' };
+      if (k.id === 'sal-fer') return { ...k, nombre: 'Obra social' };
+      return k;
+    });
+
+    // d) reasignar movimientos (guardas de existencia para no tocar transferencias)
+    const gastosVarios = cid('otrog', 'Gastos varios');
+    const otrogImp = cid('otrog', 'Impuestos');
+    const espacio = cid('otrog', 'Espacio Azul');
+    const ivan = cid('otrog', 'Ivan');
+    const libreria = cid('otrog', 'Libreria');
+    const aliOtros = cid('ali', 'Otros');
+    const salMama = cid('sal', 'Mamá');
+    const salOtros = cid('sal', 'Otros');
+    const salGym = cid('sal', 'Gym');
+    const aVarios = new Set([gastosVarios, espacio, ivan, libreria].filter((x): x is string => !!x));
+
+    const movs2 = movs.map((m) => {
+      const c = m.concepto;
+      const cat = m.cat;
+      if (catCande && cat === catCande) return { ...m, cat: 'cat-deporte', concepto: 'co-dep-basquet' };
+      if (catPao && cat === catPao) return { ...m, cat: 'otrog', concepto: variosId };
+      if (catEduDup && cat === catEduDup) return { ...m, cat: 'edu', concepto: 'edu-salesiano' };
+      let mm = m;
+      if (c && aVarios.has(c)) mm = { ...mm, concepto: variosId };
+      else if (otrogImp && c === otrogImp) mm = { ...mm, cat: 'imp', concepto: null };
+      else if ((aliOtros && c === aliOtros) || (salMama && c === salMama) || (salOtros && c === salOtros)) mm = { ...mm, concepto: null };
+      else if (salGym && c === salGym) mm = { ...mm, cat: 'cat-deporte', concepto: 'co-dep-gym' };
+      if (mm.cat === 'prestamo' && !mm.concepto) mm = { ...mm, concepto: 'co-prestamo-brubank' };
+      return mm;
+    });
+
+    // e) borrar categorías obsoletas
+    const delCats = new Set([catPao, catCande, catEduDup, 'cel', 'mkt'].filter((x): x is string => !!x));
+    cats = cats.filter((c) => !delCats.has(c.id));
+
+    // f) borrar subcategorías obsoletas (por id, acotado a gastos)
+    const delConc = new Set<string>();
+    ([
+      ['otrog', 'Gastos varios'], ['otrog', 'Impuestos'], ['otrog', 'Espacio Azul'], ['otrog', 'Ivan'], ['otrog', 'Libreria'],
+      ['ali', 'Otros'], ['sal', 'Mamá'], ['sal', 'Otros'], ['sal', 'Gym'],
+      ['imp', 'AFIP Fer'], ['imp', 'AFIP Pao'], ['imp', 'Rentas Fer'], ['imp', 'Rentas Pao'],
+      ['tc', 'Rebanking Amex'], ['viv', 'Expensas San Martín 708'], ['serv', 'Aguas'], ['serv', 'El Guardián'],
+      ['edu', 'Colegio Yaperú'], ['edu', 'Inglés Cande'], ['edu', 'Atletismo Cande'], ['edu', 'Seño Ana'], ['seg', 'La Segunda Auto'],
+    ] as [string, string][]).forEach(([cat, nombre]) => {
+      const i = cid(cat, nombre);
+      if (i) delConc.add(i);
+    });
+    delConc.add('sal-pao');
+    concs.forEach((k) => {
+      if (delCats.has(k.cat)) delConc.add(k.id);
+    });
+    concs = concs.filter((k) => !delConc.has(k.id));
 
     out = { ...out, categories: cats, conceptos: concs, movimientos: movs2 };
   }
