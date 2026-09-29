@@ -84,23 +84,42 @@ export function DashboardScreen() {
     [categories],
   );
 
+  // Mes de trabajo: seguimos el mes en curso y, cuando se paga todo, saltamos solo al
+  // siguiente (así no seguís mirando un mes ya cerrado). El usuario puede navegar con
+  // las flechas; "Hoy" vuelve al automático.
+  const mesTrabajo = useMemo(() => workingMonth(gastosFijos, instancias), [gastosFijos, instancias]);
+  const [mesSel, setMesSel] = useState<string | null>(null);
+  const mes = mesSel ?? mesTrabajo;
+  const [minMes, maxMes] = useMemo(() => {
+    let lo = MES_ACTUAL;
+    let hi = mesTrabajo;
+    for (const m of movimientos) {
+      const k = m.fecha.slice(0, 7);
+      if (k < lo) lo = k;
+      if (k > hi) hi = k;
+    }
+    for (const i of instancias) {
+      if (i.mes < lo) lo = i.mes;
+      if (i.mes > hi) hi = i.mes;
+    }
+    return [lo, hi];
+  }, [movimientos, instancias, mesTrabajo]);
+
   // Gastos reales del mes (fijos pagados + eventuales) y flujo real (ingresos/ahorro).
   const cur = useMemo(
-    () => gastosDelMes(instancias, gastosFijos, movimientos),
-    [instancias, gastosFijos, movimientos],
+    () => gastosDelMes(instancias, gastosFijos, movimientos, mes),
+    [instancias, gastosFijos, movimientos, mes],
   );
   const prev = useMemo(
-    () => gastosDelMes(instancias, gastosFijos, movimientos, addMonths(MES_ACTUAL, -1)),
-    [instancias, gastosFijos, movimientos],
+    () => gastosDelMes(instancias, gastosFijos, movimientos, addMonths(mes, -1)),
+    [instancias, gastosFijos, movimientos, mes],
   );
-  const flujo = useMemo(() => balanceDelMes(movimientos), [movimientos]);
+  const flujo = useMemo(() => balanceDelMes(movimientos, mes), [movimientos, mes]);
   const gastos = cur.total;
   const ingresos = flujo.ingresos;
   const ahorro = flujo.ahorro;
   const deltaGastosPct = prev.total > 0 ? ((cur.total - prev.total) / prev.total) * 100 : null;
 
-  // Mes de trabajo: si ya se pagó todo el mes actual, mostramos los del mes que viene.
-  const mesTrabajo = useMemo(() => workingMonth(gastosFijos, instancias), [gastosFijos, instancias]);
   const esProxMes = mesTrabajo !== MES_ACTUAL;
   const vencimientos = useMemo(
     () =>
@@ -116,10 +135,10 @@ export function DashboardScreen() {
   // Lo que falta pagar este mes (todos los vencimientos impagos del mes en curso).
   const faltaPagar = useMemo(
     () =>
-      computeVencimientos(gastosFijos, instancias, MES_ACTUAL)
+      computeVencimientos(gastosFijos, instancias, mes)
         .filter((v) => !v.pagado)
         .reduce((s, v) => s + v.monto, 0),
-    [gastosFijos, instancias],
+    [gastosFijos, instancias, mes],
   );
 
   // Movimientos de HOY (el "Ver todos" abre la lista completa).
@@ -158,10 +177,10 @@ export function DashboardScreen() {
   const catGastoMovs = useMemo(() => {
     if (!catGastos) return [];
     return movimientos
-      .filter((m) => m.tipo === 'gasto' && m.cat === catGastos && m.fecha.startsWith(MES_ACTUAL))
+      .filter((m) => m.tipo === 'gasto' && m.cat === catGastos && m.fecha.startsWith(mes))
       .slice()
       .sort((a, b) => b.fecha.localeCompare(a.fecha) || idTime(b.id) - idTime(a.id));
-  }, [movimientos, catGastos]);
+  }, [movimientos, catGastos, mes]);
 
   const onPickPhoto = (file?: File) => {
     if (file) fileToAvatar(file, (uri) => updateUser(currentUser, { foto: uri }));
@@ -206,17 +225,45 @@ export function DashboardScreen() {
         <div className="pointer-events-none absolute -bottom-20 -left-12 h-60 w-60" style={{ background: 'radial-gradient(circle, rgba(225,29,72,0.18) 0%, transparent 65%)' }} />
         <div className="relative">
           <div className="mb-1.5 flex items-center justify-between">
-            <div className="text-xs uppercase tracking-[1.2px] text-white/55">Gastos · {mesLabel(MES_ACTUAL)}</div>
-            {deltaGastosPct !== null && (
-              <div
-                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
-                style={{ background: deltaGastosPct <= 0 ? 'rgba(22,163,74,0.18)' : 'rgba(220,38,38,0.18)', color: deltaGastosPct <= 0 ? '#4ADE80' : '#F87171' }}
-                title="Vs mes anterior"
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setMesSel(addMonths(mes, -1))}
+                disabled={mes <= minMes}
+                aria-label="Mes anterior"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
               >
-                {deltaGastosPct <= 0 ? <Icon.down size={12} /> : <Icon.up size={12} />}
-                {Math.abs(deltaGastosPct).toFixed(1)}%
-              </div>
-            )}
+                <Icon.chev size={15} className="rotate-180" />
+              </button>
+              <div className="text-xs uppercase tracking-[1.2px] text-white/55">Gastos · {mesLabel(mes)}</div>
+              <button
+                onClick={() => setMesSel(addMonths(mes, 1))}
+                disabled={mes >= maxMes}
+                aria-label="Mes siguiente"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
+              >
+                <Icon.chev size={15} />
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {mes !== mesTrabajo && (
+                <button
+                  onClick={() => setMesSel(null)}
+                  className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-white/75 transition-colors hover:bg-white/15 hover:text-white"
+                >
+                  Hoy
+                </button>
+              )}
+              {deltaGastosPct !== null && (
+                <div
+                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
+                  style={{ background: deltaGastosPct <= 0 ? 'rgba(22,163,74,0.18)' : 'rgba(220,38,38,0.18)', color: deltaGastosPct <= 0 ? '#4ADE80' : '#F87171' }}
+                  title="Vs mes anterior"
+                >
+                  {deltaGastosPct <= 0 ? <Icon.down size={12} /> : <Icon.up size={12} />}
+                  {Math.abs(deltaGastosPct).toFixed(1)}%
+                </div>
+              )}
+            </div>
           </div>
           <div className="mt-1 text-[30px] font-bold tabular-nums tracking-[-1px] text-white sm:text-[34px] lg:text-[38px]">${fmtMonto(gastos)}</div>
           <div className="mt-1 text-[12px] tabular-nums text-white/45">gastado · ≈ {fmtUSD(gastos, usdRate)}</div>
@@ -232,7 +279,7 @@ export function DashboardScreen() {
           >
             <div>
               <div className="text-[11px] uppercase tracking-[0.8px]" style={{ color: faltaPagar > 0 ? '#FCD34D' : '#4ADE80' }}>
-                {faltaPagar > 0 ? 'Falta pagar este mes' : 'Este mes'}
+                {faltaPagar > 0 ? `Falta pagar · ${mesLabel(mes).split(' ')[0]}` : 'Todo al día'}
               </div>
               <div className="mt-0.5 text-[22px] font-bold tabular-nums tracking-[-0.5px]" style={{ color: faltaPagar > 0 ? '#FBBF24' : '#4ADE80' }}>
                 {faltaPagar > 0 ? `$${fmtMonto(faltaPagar)}` : 'Todo pagado ✓'}
