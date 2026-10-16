@@ -5,4 +5,4 @@
 //
 // Para cambiar de proveedor (Firebase, backend propio), reimplementá `cloud.ts`
 // manteniendo la misma superficie.
-export { fetchRemote, saveRemote, ensureRemoteState, startCloudSync, stopCloudSync, type SyncedState } from './cloud';
+export { fetchRemote, ensureRemoteState, connectCloud, startCloudSync, stopCloudSync, type SyncedState } from './cloud';

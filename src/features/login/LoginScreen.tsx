@@ -6,7 +6,7 @@ import { alpha } from '@/lib/color';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useFinanzasStore } from '@/store/useFinanzasStore';
 import { isSupabaseEnabled } from '@/services/supabase/client';
-import { ensureRemoteState, startCloudSync } from '@/services/cloud';
+import { connectCloud } from '@/services/cloud';
 
 const PROFILES: UserId[] = ['fer', 'pao'];
 
@@ -29,17 +29,10 @@ export function LoginScreen() {
     }
     setBusy(true);
     setError(null);
-    // Esperamos la nube con techo de 3s: si tarda, entramos igual y sincroniza
-    // en segundo plano (nunca dejamos al usuario clavado en "Entrando…").
-    const remotePromise = ensureRemoteState();
-    const remote = await Promise.race([
-      remotePromise.catch(() => null),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
-    ]);
-    if (remote) useFinanzasStore.setState(remote);
+    // Esperamos la nube con techo de 3s: si tarda, entramos igual y la sync arranca
+    // sola cuando llegan los datos (nunca se suben datos viejos del dispositivo).
+    await Promise.race([connectCloud(), new Promise((resolve) => setTimeout(resolve, 3000))]);
     login(uid);
-    startCloudSync();
-    if (!remote) remotePromise.then((r) => useFinanzasStore.setState(r)).catch(() => {});
   };
 
   return (
