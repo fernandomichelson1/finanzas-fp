@@ -150,7 +150,7 @@ export function VencimientoRow({
             onClick={onUnpagar}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-line bg-surface-2 py-2.5 text-[12.5px] font-medium text-muted"
           >
-            <Icon.refresh size={13} /> Desmarcar pago
+            <Icon.refresh size={13} /> Revertir pago
           </button>
         )}
       </div>

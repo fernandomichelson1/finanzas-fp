@@ -228,7 +228,7 @@ function Row({
           <button
             onClick={() => onUnpagar(v)}
             className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-[11.5px] font-medium text-muted"
-            title="Desmarcar pago"
+            title="Revertir pago"
           >
             <Icon.check size={13} strokeWidth={3} style={{ color: '#4ADE80' }} /> Pagado
           </button>

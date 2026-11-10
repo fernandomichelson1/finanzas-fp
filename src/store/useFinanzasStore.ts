@@ -384,13 +384,15 @@ export const useFinanzasStore = create<FinanzasStore>()(
         });
       },
 
+      // Revertir un pago: la instancia vuelve a pendiente (conserva el monto) y se borra
+      // el asiento del pago → la plata vuelve sola a la cuenta de donde salió.
       unpagarVencimiento: (gfId, mes) =>
         set((s) => {
           const inst = s.instancias.find((x) => x.gfId === gfId && x.mes === mes);
           const movId = inst?.pagadoMovId;
           const instancias = s.instancias.map((x) => {
             if (x.gfId !== gfId || x.mes !== mes) return x;
-            const { pagado: _p, pagadoFecha: _f, pagadoMovId: _m, ...rest } = x;
+            const { pagado: _p, pagadoFecha: _f, pagadoMovId: _m, usdRate: _u, ...rest } = x;
             return { ...rest, pagado: false };
           });
           return {

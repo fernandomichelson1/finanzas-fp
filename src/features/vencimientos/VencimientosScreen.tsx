@@ -13,7 +13,7 @@ import { Chip } from '@/components/ui/Chip';
 import { Icon } from '@/components/ui/icons';
 import { VencimientoRow, InactivoRow } from './rows';
 import { GastosFijosTable } from './GastosFijosTable';
-import { PagarSheet, GastoFijoForm, RowMenuSheet, ConfirmDeleteSheet } from './sheets';
+import { PagarSheet, GastoFijoForm, RowMenuSheet, ConfirmDeleteSheet, ConfirmRevertSheet } from './sheets';
 
 type Filter = 'pendientes' | 'pagados' | 'todos' | 'inactivos';
 
@@ -42,6 +42,8 @@ export function VencimientosScreen() {
   const [payingFor, setPayingFor] = useState<VRow | null>(null);
   const [menuFor, setMenuFor] = useState<VRow | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; nombre: string } | null>(null);
+  // Revertir un pago siempre pide confirmación (borra el asiento y devuelve la plata).
+  const [confirmRevert, setConfirmRevert] = useState<VRow | null>(null);
   const isDesktop = useBreakpoint() === 'desktop';
 
   // Mes de trabajo automático: seguimos el mes en curso hasta pagar todo, y ahí
@@ -265,7 +267,7 @@ export function VencimientosScreen() {
                 else removeInstancia(v.gfId, v.mes);
               }}
               onPagar={(v) => setPayingFor(v)}
-              onUnpagar={(v) => unpagarVencimiento(v.gfId, v.mes)}
+              onUnpagar={(v) => setConfirmRevert(v)}
               onMenu={(v) => setMenuFor(v)}
             />
           ) : (
@@ -290,7 +292,7 @@ export function VencimientosScreen() {
                     setEditingId(null);
                   }}
                   onPagar={() => setPayingFor(v)}
-                  onUnpagar={() => unpagarVencimiento(v.gfId, v.mes)}
+                  onUnpagar={() => setConfirmRevert(v)}
                   onMenu={() => setMenuFor(v)}
                 />
               ))}
@@ -358,6 +360,20 @@ export function VencimientosScreen() {
           onDelete={() => {
             setConfirmDelete({ id: menuFor.gfId, nombre: menuFor.nombre });
             setMenuFor(null);
+          }}
+          onRevert={() => {
+            setConfirmRevert(menuFor);
+            setMenuFor(null);
+          }}
+        />
+      )}
+      {confirmRevert && (
+        <ConfirmRevertSheet
+          venc={confirmRevert}
+          onClose={() => setConfirmRevert(null)}
+          onConfirm={() => {
+            unpagarVencimiento(confirmRevert.gfId, confirmRevert.mes);
+            setConfirmRevert(null);
           }}
         />
       )}

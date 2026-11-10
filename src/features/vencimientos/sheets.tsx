@@ -3,6 +3,7 @@ import type { Owner, VencimientoRow } from '@/types/domain';
 import { fmtMonto, formatMiles, moneyToInput, parseMoney } from '@/lib/format';
 import { cajasUsables, saldosDeCajas } from '@/lib/selectors';
 import { alpha } from '@/lib/color';
+import { fechaCorta, mesLabel as mesLabelOf } from '@/lib/date';
 import { CatIcon } from '@/components/ui/CatIcon';
 import { Icon } from '@/components/ui/icons';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
@@ -317,7 +318,7 @@ export function GastoFijoForm({ onClose, onSubmit }: { onClose: () => void; onSu
 }
 
 /** Menú kebab de una fila. */
-export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelete, onSetOwner, onRename, onToggleConfirm }: { venc: VencimientoRow; mesLabel: string; onClose: () => void; onEdit: () => void; onPause: () => void; onDelete: () => void; onSetOwner: (owner: Owner) => void; onRename: (nombre: string) => void; onToggleConfirm: () => void }) {
+export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelete, onSetOwner, onRename, onToggleConfirm, onRevert }: { venc: VencimientoRow; mesLabel: string; onClose: () => void; onEdit: () => void; onPause: () => void; onDelete: () => void; onSetOwner: (owner: Owner) => void; onRename: (nombre: string) => void; onToggleConfirm: () => void; onRevert: () => void }) {
   const c = useCatById(venc.cat) ?? FALLBACK;
   const [owner, setOwner] = useState<Owner>(venc.owner);
   const [renaming, setRenaming] = useState(false);
@@ -328,6 +329,10 @@ export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelet
     onClose();
   };
   const items = [
+    // Pagado por error (p. ej. otra tarjeta): vuelve a pendiente y devuelve la plata.
+    ...(venc.pagado
+      ? [{ id: 'revert', label: 'Revertir pago', sub: 'Vuelve a quedar pendiente y la plata vuelve a su cuenta', icon: <Icon.refresh size={16} />, onClick: onRevert, danger: false }]
+      : []),
     { id: 'rename', label: 'Editar nombre', sub: 'Cambiar el nombre del gasto fijo', icon: <Icon.edit size={16} />, onClick: () => setRenaming(true), danger: false },
     { id: 'edit', label: 'Editar monto y fecha', sub: 'Solo este mes', icon: <Icon.receipt size={16} />, onClick: onEdit, danger: false },
     // Confirmar (verde) / volver a gris. No aplica a los ya pagados.
@@ -405,6 +410,37 @@ export function RowMenuSheet({ venc, mesLabel, onClose, onEdit, onPause, onDelet
             </div>
           </>
         )}
+      </div>
+    </AdaptiveDialog>
+  );
+}
+
+/** Confirmación para revertir un pago: borra su asiento y la plata vuelve a la cuenta. */
+export function ConfirmRevertSheet({ venc, onClose, onConfirm }: { venc: VencimientoRow; onClose: () => void; onConfirm: () => void }) {
+  const mov = useFinanzasStore((s) => (venc.pagadoMovId ? s.movimientos.find((m) => m.id === venc.pagadoMovId) : undefined));
+  const caja = useFinanzasStore((s) => (mov?.caja ? s.cajas.find((c) => c.id === mov.caja) : undefined));
+  return (
+    <AdaptiveDialog open onClose={onClose}>
+      <div className="p-[22px]">
+        <div className="mx-auto mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: alpha('#F59E0B', 0.15), color: '#F59E0B' }}>
+          <Icon.refresh size={28} />
+        </div>
+        <h3 className="m-0 text-center text-[17px] font-bold tracking-[-0.3px] text-text">¿Revertir el pago?</h3>
+        <p className="mx-auto mb-4 mt-2 max-w-[330px] text-center text-[13px] leading-relaxed text-muted">
+          <strong className="font-semibold text-text">{venc.nombre}</strong> de {mesLabelOf(venc.mes)} vuelve a quedar pendiente.
+          {mov ? (
+            <>
+              {' '}Se borra el pago de <strong className="font-semibold text-text">${fmtMonto(mov.monto)}</strong> del {fechaCorta(mov.fecha)} y la plata
+              vuelve a <strong className="font-semibold text-text">{caja?.nombre ?? 'su cuenta'}</strong>.
+            </>
+          ) : (
+            ' Este pago no tiene un movimiento asociado, así que ninguna cuenta cambia.'
+          )}
+        </p>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-xl border border-line bg-surface-2 py-3 text-sm font-medium text-text">Cancelar</button>
+          <button onClick={onConfirm} className="flex-1 rounded-xl py-3 text-sm font-semibold text-white" style={{ background: '#D97706', boxShadow: '0 4px 12px rgba(217,119,6,0.32)' }}>Revertir pago</button>
+        </div>
       </div>
     </AdaptiveDialog>
   );
